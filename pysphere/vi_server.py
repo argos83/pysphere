@@ -47,6 +47,8 @@ class VIServer:
         self.__session = None
         self.__user = None
         self.__password = None
+        #By default impersonate the VI Client to be accepted by Virtual Server
+        self.__initial_headers = {"User-Agent":"VMware VI Client/5.0.0"}
 
     def connect(self, host, user, password, trace_file=None):
         """Opens a session to a VC/ESX server with the given credentials. You
@@ -75,7 +77,9 @@ class VIServer:
                 trace=open(trace_file, 'w')
                 self._proxy = locator.getVimPortType(url=server_url,
                                                      tracefile=trace)
-
+            for header, value in self.__initial_headers.items():
+                self._proxy.binding.AddHeader(header, value)
+                
             #get service content from service instance
             request = VI.RetrieveServiceContentRequestMsg()
             mor_service_instance = request.new__this('ServiceInstance')
@@ -704,7 +708,7 @@ class VIServer:
                 retval = self._proxy.ContinueRetrievePropertiesEx(
                                                   request)._returnval
                 ret.extend(retval.Objects)
-            return ret
+            return ret            
 
         if self.__api_version >= "4.1":
             #RetrieveProperties is deprecated (but supported) in sdk 4.1.
@@ -721,3 +725,23 @@ class VIServer:
             call_pointer = call_retrieve_properties
 
         return request, call_pointer
+
+    def _set_header(self, name, value):
+        """Sets a HTTP header to be sent with the SOAP requests.
+        E.g. for impersonation of a particular client.
+        Both name and value should be strings."""
+        if not (isinstance(name, basestring) and isinstance(value, basestring)):
+            return
+        
+        if not self.__logged:
+            self.__initial_headers[name] = value
+        else:
+            self._proxy.binding.AddHeader(name, value)
+        
+    def _reset_headers(self):
+        """Resets the additional HTTP headers configured to be sent along with
+        the SOAP requests."""
+        if not self.__logged:
+            self.__initial_headers = {}
+        else:
+            self._proxy.binding.ResetHeaders()
