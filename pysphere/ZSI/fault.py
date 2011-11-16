@@ -3,15 +3,15 @@
 '''Faults.
 '''
 
-from ZSI import _copyright, _children, _child_elements, \
+from pysphere.ZSI import _copyright, _children, _child_elements, \
         _get_idstr, _stringtypes, _seqtypes, _Node, SoapWriter, ZSIException
 
-from ZSI.TCcompound import Struct
-from ZSI.TC import QName, URI, String, XMLString, AnyElement, UNBOUNDED
+from pysphere.ZSI.TCcompound import Struct
+from pysphere.ZSI.TC import QName, URI, String, XMLString, AnyElement, UNBOUNDED
 
-from ZSI.wstools.Namespaces import SOAP, ZSI_SCHEMA_URI
-from ZSI.wstools.c14n import Canonicalize
-from ZSI.TC import ElementDeclaration
+from pysphere.ZSI.wstools.Namespaces import SOAP, ZSI_SCHEMA_URI
+from pysphere.ZSI.wstools.c14n import Canonicalize
+from pysphere.ZSI.TC import ElementDeclaration
 
 import traceback, cStringIO as StringIO
 

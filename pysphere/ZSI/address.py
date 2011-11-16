@@ -4,11 +4,11 @@
 ###########################################################################
 
 import time, urlparse, socket
-from ZSI import _seqtypes, EvaluateException, WSActionException
-from ZSI.TC import AnyElement, AnyType, TypeCode
-from ZSI.schema import GED, GTD, _has_type_definition
-from ZSI.TCcompound import ComplexType
-from ZSI.wstools.Namespaces import WSA_LIST
+from pysphere.ZSI import _seqtypes, EvaluateException, WSActionException
+from pysphere.ZSI.TC import AnyElement, AnyType, TypeCode
+from pysphere.ZSI.schema import GED, GTD, _has_type_definition
+from pysphere.ZSI.TCcompound import ComplexType
+from pysphere.ZSI.wstools.Namespaces import WSA_LIST
 
 
 class Address(object):

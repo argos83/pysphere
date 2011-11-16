@@ -3,9 +3,9 @@
 """XML Schema support
 """
 
-from ZSI import _copyright, _seqtypes, _find_type, _get_element_nsuri_name, EvaluateException
-from ZSI.wstools.Namespaces import SCHEMA, SOAP
-from ZSI.wstools.Utility import SplitQName
+from pysphere.ZSI import _copyright, _seqtypes, _find_type, _get_element_nsuri_name, EvaluateException
+from pysphere.ZSI.wstools.Namespaces import SCHEMA, SOAP
+from pysphere.ZSI.wstools.Utility import SplitQName
 
 
 def _get_type_definition(namespaceURI, name, **kw):

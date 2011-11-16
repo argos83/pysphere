@@ -3,21 +3,21 @@
 '''Compound typecodes.
 '''
 
-from ZSI import _copyright, _children, _child_elements, \
+from pysphere.ZSI import _copyright, _children, _child_elements, \
     _inttypes, _stringtypes, _seqtypes, _find_arraytype, _find_href, \
     _find_type, _find_xmlns_prefix, _get_idstr, EvaluateException, \
     ParseException
 
-from ZSI.TC import _get_element_nsuri_name, \
+from pysphere.ZSI.TC import _get_element_nsuri_name, \
      _get_xsitype, TypeCode, Any, AnyElement, AnyType, \
      Nilled, UNBOUNDED
 
-from ZSI.schema import GED, ElementDeclaration, TypeDefinition, \
+from pysphere.ZSI.schema import GED, ElementDeclaration, TypeDefinition, \
     _get_substitute_element, _get_type_definition, _is_substitute_element
 
-from ZSI.wstools.Namespaces import SCHEMA, SOAP
-from ZSI.wstools.Utility import SplitQName
-from ZSI.wstools.logging import getLogger as _GetLogger
+from pysphere.ZSI.wstools.Namespaces import SCHEMA, SOAP
+from pysphere.ZSI.wstools.Utility import SplitQName
+from pysphere.ZSI.wstools.logging import getLogger as _GetLogger
 import re, types
 from copy import copy as _copy
 

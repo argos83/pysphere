@@ -8,15 +8,15 @@ import exceptions, sys, optparse, os, warnings, traceback
 from os.path import isfile, join, split
 
 #from operator import xor
-import ZSI
+import pysphere.ZSI
 from ConfigParser import ConfigParser
-from ZSI.generate.wsdl2python import WriteServiceModule, ServiceDescription as wsdl2pyServiceDescription
-from ZSI.wstools import WSDLTools, XMLSchema
-from ZSI.wstools.logging import setBasicLoggerDEBUG
-from ZSI.generate import containers, utility
-from ZSI.generate.utility import NCName_to_ClassName as NC_to_CN, TextProtect
-from ZSI.generate.wsdl2dispatch import ServiceModuleWriter as ServiceDescription
-from ZSI.generate.wsdl2dispatch import WSAServiceModuleWriter as ServiceDescriptionWSA
+from pysphere.ZSI.generate.wsdl2python import WriteServiceModule, ServiceDescription as wsdl2pyServiceDescription
+from pysphere.ZSI.wstools import WSDLTools, XMLSchema
+from pysphere.ZSI.wstools.logging import setBasicLoggerDEBUG
+from pysphere.ZSI.generate import containers, utility
+from pysphere.ZSI.generate.utility import NCName_to_ClassName as NC_to_CN, TextProtect
+from pysphere.ZSI.generate.wsdl2dispatch import ServiceModuleWriter as ServiceDescription
+from pysphere.ZSI.generate.wsdl2dispatch import WSAServiceModuleWriter as ServiceDescriptionWSA
 
 
 warnings.filterwarnings('ignore', '', exceptions.UserWarning)
@@ -26,7 +26,7 @@ def SetDebugCallback(option, opt, value, parser, *args, **kwargs):
 
 def SetPyclassMetaclass(option, opt, value, parser, *args, **kwargs):
     """set up pyclass metaclass for complexTypes"""
-    from ZSI.generate.containers import ServiceHeaderContainer,\
+    from pysphere.ZSI.generate.containers import ServiceHeaderContainer,\
         TypecodeContainerBase, TypesHeaderContainer
 
     TypecodeContainerBase.metaclass = kwargs['metaclass']
@@ -38,7 +38,7 @@ def SetPyclassMetaclass(option, opt, value, parser, *args, **kwargs):
             )
 
 def SetUpLazyEvaluation(option, opt, value, parser, *args, **kwargs):
-    from ZSI.generate.containers import TypecodeContainerBase
+    from pysphere.ZSI.generate.containers import TypecodeContainerBase
     TypecodeContainerBase.lazy = True
 
 
@@ -83,7 +83,7 @@ def wsdl2py(args=None):
     # pyclass Metaclass
     op.add_option("-b", "--complexType",
                   action="callback", callback=SetPyclassMetaclass,
-                  callback_kwargs={'module':'ZSI.generate.pyclass',
+                  callback_kwargs={'module':'pysphere.ZSI.generate.pyclass',
                       'metaclass':'pyclass_type'},
                   help="add convenience functions for complexTypes, including Getters, Setters, factory methods, and properties (via metaclass). *** DONT USE WITH --simple-naming ***")
 
@@ -198,12 +198,12 @@ def wsdl2py(args=None):
 def _wsdl2py(options, wsdl):
 
     if options.twisted:
-        from ZSI.generate.containers import ServiceHeaderContainer
+        from pysphere.ZSI.generate.containers import ServiceHeaderContainer
         try:
-            ServiceHeaderContainer.imports.remove('from ZSI import client')
+            ServiceHeaderContainer.imports.remove('from pysphere.ZSI import client')
         except ValueError:
             pass
-        ServiceHeaderContainer.imports.append('from ZSI.twisted import client')
+        ServiceHeaderContainer.imports.append('from pysphere.ZSI.twisted import client')
 
 
     if options.simple_naming:
@@ -248,7 +248,7 @@ def _wsdl2dispatch(options, wsdl):
     """
     kw = dict()
     if options.twisted:
-        from ZSI.twisted.WSresource import WSResource
+        from pysphere.ZSI.twisted.WSresource import WSResource
         kw['base'] = WSResource
         ss = ServiceDescription(**kw)
         if options.address is True:
@@ -293,7 +293,7 @@ from distutils.util import convert_path
 
 #from setuptools import find_packages
 #from setuptools import Command
-from ZSI.schema import ElementDeclaration, TypeDefinition
+from pysphere.ZSI.schema import ElementDeclaration, TypeDefinition
 #from pyGridWare.utility.generate.Modules import NR
 #from pyGridWare.utility.generate.Modules import CLIENT, TYPES
 

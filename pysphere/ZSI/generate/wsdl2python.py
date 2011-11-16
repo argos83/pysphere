@@ -8,19 +8,19 @@
 # $Id$
 
 import os, sys, warnings
-from ZSI import _get_idstr
-from ZSI.wstools.logging import getLogger as _GetLogger
-from ZSI.wstools import WSDLTools
-from ZSI.wstools.WSDLTools import SoapAddressBinding,\
+from pysphere.ZSI import _get_idstr
+from pysphere.ZSI.wstools.logging import getLogger as _GetLogger
+from pysphere.ZSI.wstools import WSDLTools
+from pysphere.ZSI.wstools.WSDLTools import SoapAddressBinding,\
     SoapBodyBinding, SoapBinding,MimeContentBinding,\
     HttpUrlEncodedBinding
-from ZSI.wstools.XMLSchema import SchemaReader, ElementDeclaration, SchemaError
-from ZSI.typeinterpreter import BaseTypeInterpreter
-from ZSI.generate import WsdlGeneratorError, Wsdl2PythonError
-from containers import *
-from ZSI.generate import utility
-from ZSI.generate.utility import NamespaceAliasDict as NAD
-from ZSI.generate.utility import GetModuleBaseNameFromWSDL
+from pysphere.ZSI.wstools.XMLSchema import SchemaReader, ElementDeclaration, SchemaError
+from pysphere.ZSI.typeinterpreter import BaseTypeInterpreter
+from pysphere.ZSI.generate import WsdlGeneratorError, Wsdl2PythonError
+from pysphere.ZSI.generate.containers import *
+from pysphere.ZSI.generate import utility
+from pysphere.ZSI.generate.utility import NamespaceAliasDict as NAD
+from pysphere.ZSI.generate.utility import GetModuleBaseNameFromWSDL
 
 """
 classes:

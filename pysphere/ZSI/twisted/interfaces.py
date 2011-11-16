@@ -10,7 +10,7 @@ import sys, warnings
 from zope.interface import classProvides, implements, Interface
 
 # ZSI imports
-from ZSI import EvaluateException, ParseException, ParsedSoap, SoapWriter
+from pysphere.ZSI import EvaluateException, ParseException, ParsedSoap, SoapWriter
 
 
 #

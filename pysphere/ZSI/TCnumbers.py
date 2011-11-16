@@ -3,10 +3,10 @@
 '''Typecodes for numbers.
 '''
 import types
-from ZSI import _copyright, _inttypes, _floattypes, _seqtypes, \
+from pysphere.ZSI import _copyright, _inttypes, _floattypes, _seqtypes, \
         EvaluateException
-from ZSI.TC import TypeCode, Integer, Decimal
-from ZSI.wstools.Namespaces import SCHEMA
+from pysphere.ZSI.TC import TypeCode, Integer, Decimal
+from pysphere.ZSI.wstools.Namespaces import SCHEMA
 
 class IunsignedByte(Integer):
     '''Unsigned 8bit value.

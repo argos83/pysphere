@@ -5,14 +5,14 @@
 
 import urlparse, types, os, sys, cStringIO as StringIO, thread,re
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
-from ZSI import ParseException, FaultFromException, FaultFromZSIException, Fault
-from ZSI import _copyright, _seqtypes, _get_element_nsuri_name, resolvers
-from ZSI import _get_idstr
-from ZSI.address import Address
-from ZSI.parse import ParsedSoap
-from ZSI.writer import SoapWriter
-from ZSI.dispatch import _ModPythonSendXML, _ModPythonSendFault, _CGISendXML, _CGISendFault
-from ZSI.dispatch import SOAPRequestHandler as BaseSOAPRequestHandler
+from pysphere.ZSI import ParseException, FaultFromException, FaultFromZSIException, Fault
+from pysphere.ZSI import _copyright, _seqtypes, _get_element_nsuri_name, resolvers
+from pysphere.ZSI import _get_idstr
+from pysphere.ZSI.address import Address
+from pysphere.ZSI.parse import ParsedSoap
+from pysphere.ZSI.writer import SoapWriter
+from pysphere.ZSI.dispatch import _ModPythonSendXML, _ModPythonSendFault, _CGISendXML, _CGISendFault
+from pysphere.ZSI.dispatch import SOAPRequestHandler as BaseSOAPRequestHandler
 
 """
 Functions:

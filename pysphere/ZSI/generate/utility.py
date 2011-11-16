@@ -10,11 +10,11 @@
 # $Id$
 
 import re
-from ZSI import EvaluateException
-from ZSI.TCcompound import Struct
-from ZSI.generate import WsdlGeneratorError, Wsdl2PythonError
-from ZSI.wstools.Utility import SplitQName
-from ZSI.wstools.Namespaces import SCHEMA
+from pysphere.ZSI import EvaluateException
+from pysphere.ZSI.TCcompound import Struct
+from pysphere.ZSI.generate import WsdlGeneratorError, Wsdl2PythonError
+from pysphere.ZSI.wstools.Utility import SplitQName
+from pysphere.ZSI.wstools.Namespaces import SCHEMA
 
 NCName_to_ModuleName = lambda name: re.sub('\.', '_', TextProtect(name))
 NCName_to_ClassName = lambda name: re.sub('\.', '_', TextProtect(name))

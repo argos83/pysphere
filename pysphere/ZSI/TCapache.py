@@ -3,10 +3,10 @@
 '''Apache typecodes.
 '''
 
-from ZSI import _copyright, _child_elements, _get_idstr
-from ZSI.TC import SimpleType, TypeCode, Struct as _Struct, Any as _Any
-from ZSI.wstools.logging import getLogger as _GetLogger
-from ZSI.wstools.Namespaces import APACHE
+from pysphere.ZSI import _copyright, _child_elements, _get_idstr
+from pysphere.ZSI.TC import SimpleType, TypeCode, Struct as _Struct, Any as _Any
+from pysphere.ZSI.wstools.logging import getLogger as _GetLogger
+from pysphere.ZSI.wstools.Namespaces import APACHE
 #import types
 
 class Apache:

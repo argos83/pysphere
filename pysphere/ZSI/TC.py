@@ -3,7 +3,7 @@
 '''General typecodes.
 '''
 
-from ZSI import _copyright, _children, _child_elements, \
+from pysphere.ZSI import _copyright, _children, _child_elements, \
     _floattypes, _stringtypes, _seqtypes, _find_attr, _find_attrNS, _find_attrNodeNS, \
     _find_arraytype, _find_default_namespace, _find_href, _find_encstyle, \
     _resolve_prefix, _find_xsi_attr, _find_type, \
@@ -11,10 +11,10 @@ from ZSI import _copyright, _children, _child_elements, \
     _Node, EvaluateException, UNICODE_ENCODING, \
     _valid_encoding, ParseException
 
-from wstools.Namespaces import SCHEMA, SOAP
-from wstools.Utility import SplitQName
-from wstools.c14n import Canonicalize
-from wstools.logging import getLogger as _GetLogger
+from pysphere.ZSI.wstools.Namespaces import SCHEMA, SOAP
+from pysphere.ZSI.wstools.Utility import SplitQName
+from pysphere.ZSI.wstools.c14n import Canonicalize
+from pysphere.ZSI.wstools.logging import getLogger as _GetLogger
 
 import re, types, time, copy
 
@@ -608,7 +608,7 @@ class Any(TypeCode):
         else:
             serializer = Any.serialmap.get(tc)
             if not serializer and isinstance(pyobj, time.struct_time):
-                from ZSI.TCtimes import gDateTime
+                from pysphere.ZSI.TCtimes import gDateTime
                 serializer = gDateTime()
         if serializer:
             return serializer.get_formatted_content(pyobj)
@@ -670,7 +670,7 @@ class Any(TypeCode):
         else:
             serializer = Any.serialmap.get(tc)
             if not serializer and isinstance(pyobj, time.struct_time):
-                from ZSI.TCtimes import gDateTime
+                from pysphere.ZSI.TCtimes import gDateTime
                 serializer = gDateTime()
 
         if not serializer:

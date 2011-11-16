@@ -6,10 +6,10 @@
 
 from VimService_services_types import *
 import urlparse, types
-from ZSI.TCcompound import ComplexType, Struct
-from ZSI import client
-import ZSI
-from ZSI.generate.pyclass import pyclass_type
+from pysphere.ZSI.TCcompound import ComplexType, Struct
+from pysphere.ZSI import client
+import pysphere.ZSI
+from pysphere.ZSI.generate.pyclass import pyclass_type
 
 # Locator
 class VimServiceLocator:

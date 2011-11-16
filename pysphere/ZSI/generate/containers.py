@@ -11,13 +11,13 @@ from utility import StringWriter, TextProtect, TextProtectAttributeName,\
     GetPartsSubNames
 from utility import NamespaceAliasDict as NAD, NCName_to_ClassName as NC_to_CN
 
-import ZSI
-from ZSI.TC import _is_xsd_or_soap_ns
-from ZSI.wstools import XMLSchema, WSDLTools
-from ZSI.wstools.Namespaces import SCHEMA, SOAP, WSDL, APACHE
-from ZSI.wstools.logging import getLogger as _GetLogger
-from ZSI.typeinterpreter import BaseTypeInterpreter
-from ZSI.generate import WSISpec, WSInteropError, Wsdl2PythonError,\
+import pysphere.ZSI
+from pysphere.ZSI.TC import _is_xsd_or_soap_ns
+from pysphere.ZSI.wstools import XMLSchema, WSDLTools
+from pysphere.ZSI.wstools.Namespaces import SCHEMA, SOAP, WSDL, APACHE
+from pysphere.ZSI.wstools.logging import getLogger as _GetLogger
+from pysphere.ZSI.typeinterpreter import BaseTypeInterpreter
+from pysphere.ZSI.generate import WSISpec, WSInteropError, Wsdl2PythonError,\
     WsdlGeneratorError, WSDLFormatError
 
 ID1 = '    '
@@ -137,7 +137,7 @@ class AttributeMixIn:
             idx += 1
             if a.isWildCard() and a.isDeclaration():
                 atd_list.append(\
-                    '%s[("%s","anyAttribute")] = ZSI.TC.AnyElement()'\
+                    '%s[("%s","anyAttribute")] = pysphere.ZSI.TC.AnyElement()'\
                     % (atd, SCHEMA.XSD3)
                     )
             elif a.isDeclaration():
@@ -153,7 +153,7 @@ class AttributeMixIn:
                         tc = BTI.get_typeclass(t[1], t[0])
                     except:
                         # hand back a string by default.
-                        tc = ZSI.TC.String
+                        tc = pysphere.ZSI.TC.String
 
                     if tc is not None:
                         tc = '%s()' %tc
@@ -198,7 +198,7 @@ class AttributeMixIn:
                              a.getAttribute('ref').getTargetNamespace(),
                              a.getAttribute('ref').getName())
                     atd_list.append(\
-                        '%s[%s] = ZSI.TC.String()' %(atd, key)
+                        '%s[%s] = pysphere.ZSI.TC.String()' %(atd, key)
                         )
                 elif tp is None:
                     # built in simple type
@@ -208,7 +208,7 @@ class AttributeMixIn:
                         # TODO: attribute declaration could be anonymous type
                         # hack in something to work
                         atd_list.append(\
-                            '%s[%s] = ZSI.TC.String()' %(atd, key)
+                            '%s[%s] = pysphere.ZSI.TC.String()' %(atd, key)
                             )
                     else:
                         atd_list.append(\
@@ -305,10 +305,10 @@ class ServiceContainerBase(ContainerBase):
 
 class ServiceHeaderContainer(ServiceContainerBase):
     imports = ['\nimport urlparse, types',
-              'from ZSI.TCcompound import ComplexType, Struct',
-              'from ZSI import client',
-              'from ZSI.schema import GED, GTD',
-              'import ZSI'
+              'from pysphere.ZSI.TCcompound import ComplexType, Struct',
+              'from pysphere.ZSI import client',
+              'from pysphere.ZSI.schema import GED, GTD',
+              'import pysphere.ZSI'
               ]
     logger = _GetLogger("ServiceHeaderContainer")
 
@@ -1119,9 +1119,9 @@ class TypesHeaderContainer(TypesContainerBase):
     '''imports for all generated types modules.
     '''
     imports = [
-        'import ZSI',
-        'import ZSI.TCcompound',
-        'from ZSI.schema import LocalElementDeclaration, ElementDeclaration, TypeDefinition, GTD, GED',
+        'import pysphere.ZSI',
+        'import pysphere.ZSI.TCcompound',
+        'from pysphere.ZSI.schema import LocalElementDeclaration, ElementDeclaration, TypeDefinition, GTD, GED',
     ]
     logger = _GetLogger("TypesHeaderContainer")
 
@@ -1917,7 +1917,7 @@ class TcListComponentContainer(ContainerBase):
 
         kw['process'] = self._getProcessContents()
         if self.style == 'anyElement':
-            return 'ZSI.TC.AnyElement(aname="%(aname)s", %(occurs)s, %(process)s)' %kw
+            return 'pysphere.ZSI.TC.AnyElement(aname="%(aname)s", %(occurs)s, %(process)s)' %kw
 
 #        if self.style == 'recursion':
 #            return 'vmw.ZSI.TC.AnyElement(aname="%(aname)s", %(occurs)s, %(process)s)' %kw
@@ -1955,7 +1955,7 @@ class RPCMessageTcListComponentContainer(TcListComponentContainer):
         elif self.style == 'ref':
             return '%s(encoded=%s, %s)' % (self.klass, encoded, self._getOccurs())
         elif self.style == 'anyElement':
-            return 'ZSI.TC.AnyElement(aname="%s", %s, %s)' \
+            return 'pysphere.ZSI.TC.AnyElement(aname="%s", %s, %s)' \
                 %(self.getAttributeName(self.name), self._getOccurs(), self._getProcessContents())
 #        elif self.style == 'recursion':
 #            return 'vmw.ZSI.TC.AnyElement(aname="%s", %s, %s)' \
@@ -2163,7 +2163,7 @@ class ElementLocalComplexTypeContainer(TypecodeContainerBase, AttributeMixIn):
         kw = KW.copy()
         try:
             kw.update(dict(klass=self.getClassName(),
-                       subclass='ZSI.TCcompound.ComplexType',
+                       subclass='pysphere.ZSI.TCcompound.ComplexType',
                        element='ElementDeclaration',
                        literal=self.literalTag(),
                        schema=self.schemaTag(),
@@ -2202,7 +2202,7 @@ class ElementLocalComplexTypeContainer(TypecodeContainerBase, AttributeMixIn):
             '%(ID3)skw["pname"] = %(pname)s',
             '%(ID3)skw["aname"] = "%(aname)s"',
             '%(ID3)s%(atypecode)s = {}',
-            '%(ID3)sZSI.TCcompound.ComplexType.__init__(self,None,TClist,inorder=0,**kw)',
+            '%(ID3)spysphere.ZSI.TCcompound.ComplexType.__init__(self,None,TClist,inorder=0,**kw)',
             ]
         for l in self.attrComponents: element.append('%(ID3)s'+str(l))
         element += self.getPyClassDefinition()
@@ -2537,7 +2537,7 @@ class ComplexTypeComplexContentContainer(TypecodeContainerBase, AttributeMixIn):
             # No need to xsi:type array items since specify with
             # SOAP-ENC:arrayType attribute.
             definition += [\
-                '%sclass %s(ZSI.TC.Array, TypeDefinition):' % (ID1, self.getClassName()),
+                '%sclass %s(pysphere.ZSI.TC.Array, TypeDefinition):' % (ID1, self.getClassName()),
                 '%s#complexType/complexContent base="soapenc:Array"' %(ID2),
                 '%s%s' % (ID2, self.schemaTag()),
                 '%s%s' % (ID2, self.typeTag()),
@@ -2575,7 +2575,7 @@ class ComplexTypeComplexContentContainer(TypecodeContainerBase, AttributeMixIn):
         if isAnyType:
             del definition[0]
             definition.insert(0,
-                '%sclass %s(ZSI.TC.ComplexType, TypeDefinition):' % (
+                '%sclass %s(pysphere.ZSI.TC.ComplexType, TypeDefinition):' % (
                              ID1, self.getClassName())
             )
             definition.insert(1,
@@ -2593,7 +2593,7 @@ class ComplexTypeComplexContentContainer(TypecodeContainerBase, AttributeMixIn):
 
         if isAnyType:
             definition.append(\
-                '%sZSI.TC.ComplexType.__init__(self, None, TClist, pname=pname, **kw)' %(
+                '%spysphere.ZSI.TC.ComplexType.__init__(self, None, TClist, pname=pname, **kw)' %(
                     ID3),
             )
 
@@ -2679,7 +2679,7 @@ class ComplexTypeContainer(TypecodeContainerBase, AttributeMixIn):
     def _setContent(self):
         try:
             definition = [
-                '%sclass %s(ZSI.TCcompound.ComplexType, TypeDefinition):'
+                '%sclass %s(pysphere.ZSI.TCcompound.ComplexType, TypeDefinition):'
                 % (ID1, self.getClassName()),
                 '%s%s' % (ID2, self.schemaTag()),
                 '%s%s' % (ID2, self.typeTag()),
@@ -2706,7 +2706,7 @@ class ComplexTypeContainer(TypecodeContainerBase, AttributeMixIn):
             for l in self.attrComponents:  definition.append('%s%s'%(ID4, l))
 
         definition.append(\
-            '%sZSI.TCcompound.ComplexType.__init__(self, None, TClist, pname=pname, inorder=0, %s**kw)' \
+            '%spysphere.ZSI.TCcompound.ComplexType.__init__(self, None, TClist, pname=pname, inorder=0, %s**kw)' \
             %(ID3, self.getExtraFlags())
         )
 
@@ -2747,15 +2747,15 @@ class SimpleTypeContainer(TypecodeContainerBase):
 
     def getPythonType(self):
         pyclass = eval(str(self.sKlass))
-        if issubclass(pyclass, ZSI.TC.String):
+        if issubclass(pyclass, pysphere.ZSI.TC.String):
             return 'str'
-        if issubclass(pyclass, ZSI.TC.Ilong) or issubclass(pyclass, ZSI.TC.IunsignedLong):
+        if issubclass(pyclass, pysphere.ZSI.TC.Ilong) or issubclass(pyclass, pysphere.ZSI.TC.IunsignedLong):
             return 'long'
-        if issubclass(pyclass, ZSI.TC.Boolean) or issubclass(pyclass, ZSI.TC.Integer):
+        if issubclass(pyclass, pysphere.ZSI.TC.Boolean) or issubclass(pyclass, pysphere.ZSI.TC.Integer):
             return 'int'
-        if issubclass(pyclass, ZSI.TC.Decimal):
+        if issubclass(pyclass, pysphere.ZSI.TC.Decimal):
             return 'float'
-        if issubclass(pyclass, ZSI.TC.Gregorian) or issubclass(pyclass, ZSI.TC.Duration):
+        if issubclass(pyclass, pysphere.ZSI.TC.Gregorian) or issubclass(pyclass, pysphere.ZSI.TC.Duration):
             return 'tuple'
         return None
 
@@ -2988,7 +2988,7 @@ class UnionContainer(SimpleTypeContainer):
             raise ContainerError, 'content must be a Union: %s' %tp.getItemTrace()
         self.name = tp.getAttribute('name')
         self.ns = tp.getTargetNamespace()
-        self.sKlass = 'ZSI.TC.Union'
+        self.sKlass = 'pysphere.ZSI.TC.Union'
         self.memberTypes = tp.content.getAttribute('memberTypes')
 
     def _setContent(self):
@@ -3019,7 +3019,7 @@ class ListContainer(SimpleTypeContainer):
             raise ContainerError, 'content must be a List: %s' %tp.getItemTrace()
         self.name = tp.getAttribute('name')
         self.ns = tp.getTargetNamespace()
-        self.sKlass = 'ZSI.TC.List'
+        self.sKlass = 'pysphere.ZSI.TC.List'
         self.itemType = tp.content.getAttribute('itemType')
 
     def _setContent(self):

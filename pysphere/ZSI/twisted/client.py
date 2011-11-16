@@ -12,10 +12,10 @@ from twisted.internet import reactor
 from twisted.python import log
 from twisted.python.failure import Failure
 
-from ZSI.parse import ParsedSoap
-from ZSI.writer import SoapWriter
-from ZSI.fault import FaultFromFaultMessage
-from ZSI.wstools.Namespaces import WSA
+from pysphere.ZSI.parse import ParsedSoap
+from pysphere.ZSI.writer import SoapWriter
+from pysphere.ZSI.fault import FaultFromFaultMessage
+from pysphere.ZSI.wstools.Namespaces import WSA
 
 from WSresource import HandlerChainInterface, CheckInputArgs
 
@@ -136,7 +136,7 @@ class WSAddressHandler:
         return ps
 
     def processRequest(self, sw, wsaction=None, url=None, endPointReference=None, **kw):
-        from ZSI.address import Address
+        from pysphere.ZSI.address import Address
         if sw is None:
             self.address = None
             return
@@ -218,7 +218,7 @@ class WSAddressClientHandlerChainFactory:
 class Binding:
     """Object that represents a binding (connection) to a SOAP server.
     """
-    agent='ZSI.twisted client'
+    agent='pysphere.ZSI.twisted client'
     factory = DefaultClientHandlerChainFactory
     defer = False
 

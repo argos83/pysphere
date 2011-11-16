@@ -15,14 +15,14 @@ import twisted.web.http
 import twisted.web.resource
 
 # ZSI imports
-from ZSI import _get_element_nsuri_name, EvaluateException, ParseException
-from ZSI.parse import ParsedSoap
-from ZSI.writer import SoapWriter
-from ZSI import fault
+from pysphere.ZSI import _get_element_nsuri_name, EvaluateException, ParseException
+from pysphere.ZSI.parse import ParsedSoap
+from pysphere.ZSI.writer import SoapWriter
+from pysphere.ZSI import fault
 
 # WS-Address related imports
-from ZSI.address import Address
-from ZSI.ServiceContainer import WSActionException
+from pysphere.ZSI.address import Address
+from pysphere.ZSI.ServiceContainer import WSActionException
 
 from interfaces import CheckInputArgs, HandlerChainInterface, CallbackChainInterface,\
     DataHandler

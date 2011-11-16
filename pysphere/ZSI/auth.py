@@ -3,8 +3,8 @@
 '''Simple CGI dispatching.
 '''
 
-from ZSI import TC
-from ZSI import _copyright
+from pysphere.ZSI import TC
+from pysphere.ZSI import _copyright
 import base64, os
 
 _b64_decode = base64.decodestring

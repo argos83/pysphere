@@ -1,15 +1,15 @@
 #!/usr/bin/env python
 import inspect
 from cStringIO import StringIO
-import ZSI, string, sys, getopt, urlparse, types, warnings
-from ZSI.wstools import WSDLTools
-from ZSI.ServiceContainer import ServiceSOAPBinding, SimpleWSResource, WSAResource
+import pysphere.ZSI, string, sys, getopt, urlparse, types, warnings
+from pysphere.ZSI.wstools import WSDLTools
+from pysphere.ZSI.ServiceContainer import ServiceSOAPBinding, SimpleWSResource, WSAResource
 
-from ZSI.generate import WsdlGeneratorError, Wsdl2PythonError
-from utility import TextProtect, GetModuleBaseNameFromWSDL, \
+from pysphere.ZSI.generate import WsdlGeneratorError, Wsdl2PythonError
+from pysphere.ZSI.generate.utility import TextProtect, GetModuleBaseNameFromWSDL, \
     NCName_to_ClassName, GetPartsSubNames, TextProtectAttributeName
-from containers import BindingDescription
-from wsdl2python import MessageWriter, WriteServiceModule,\
+from pysphere.ZSI.generate.containers import BindingDescription
+from pysphere.ZSI.generate.wsdl2python import MessageWriter, WriteServiceModule,\
     MessageTypecodeContainer, SchemaDescription
 
 # Split last token
@@ -144,8 +144,8 @@ class ServiceModuleWriter:
         '''set import statements
         '''
         i = self.imports
-        print >>i, 'from ZSI.schema import GED, GTD'
-        print >>i, 'from ZSI.TCcompound import ComplexType, Struct'
+        print >>i, 'from pysphere.ZSI.schema import GED, GTD'
+        print >>i, 'from pysphere.ZSI.TCcompound import ComplexType, Struct'
 
         module = self.getTypesModuleName()
         package = self.getTypesModulePath()

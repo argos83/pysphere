@@ -17,12 +17,12 @@ import twisted.web.http
 import twisted.web.resource
 
 # ZSI imports
-from ZSI import _get_element_nsuri_name, EvaluateException, ParseException
-from ZSI.parse import ParsedSoap
-from ZSI.writer import SoapWriter
-from ZSI.TC import _get_global_element_declaration as GED
-from ZSI import fault
-from ZSI.wstools.Namespaces import OASIS, DSIG
+from pysphere.ZSI import _get_element_nsuri_name, EvaluateException, ParseException
+from pysphere.ZSI.parse import ParsedSoap
+from pysphere.ZSI.writer import SoapWriter
+from pysphere.ZSI.TC import _get_global_element_declaration as GED
+from pysphere.ZSI import fault
+from pysphere.ZSI.wstools.Namespaces import OASIS, DSIG
 from WSresource import DefaultHandlerChain, HandlerChainInterface,\
     WSAddressCallbackHandler, DataHandler, WSAddressHandler
 

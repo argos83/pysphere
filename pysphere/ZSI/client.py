@@ -3,17 +3,17 @@
 #
 # Copyright (c) 2001 Zolera Systems.  All rights reserved.
 
-from ZSI import _copyright, _seqtypes, ParsedSoap, SoapWriter, TC, ZSI_SCHEMA_URI,\
+from pysphere.ZSI import _copyright, _seqtypes, ParsedSoap, SoapWriter, TC, ZSI_SCHEMA_URI,\
     EvaluateException, FaultFromFaultMessage, _child_elements, _attrs, _find_arraytype,\
     _find_type, _get_idstr, _get_postvalue_from_absoluteURI, FaultException, WSActionException,\
     UNICODE_ENCODING
-from ZSI.auth import AUTH
-from ZSI.TC import AnyElement, AnyType, String, TypeCode, _get_global_element_declaration,\
+from pysphere.ZSI.auth import AUTH
+from pysphere.ZSI.TC import AnyElement, AnyType, String, TypeCode, _get_global_element_declaration,\
     _get_type_definition
-from ZSI.TCcompound import Struct
+from pysphere.ZSI.TCcompound import Struct
 import base64, httplib, Cookie, types, time, urlparse
-from ZSI.address import Address
-from ZSI.wstools.logging import getLogger as _GetLogger
+from pysphere.ZSI.address import Address
+from pysphere.ZSI.wstools.logging import getLogger as _GetLogger
 _b64_encode = base64.encodestring
 
 class _AuthHeader:
@@ -350,7 +350,7 @@ class _Binding:
             raise RuntimeError,\
                 'Auth style(%d) does not support requested digest authorization.' %self.auth_style
 
-        from ZSI.digest_auth import fetch_challenge,\
+        from pysphere.ZSI.digest_auth import fetch_challenge,\
             generate_response,\
             build_authorization_arg,\
             dict_fetch

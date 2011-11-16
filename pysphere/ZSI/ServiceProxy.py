@@ -12,12 +12,12 @@ from ConfigParser import SafeConfigParser as ConfigParser,\
     NoSectionError, NoOptionError
 from urlparse import urlparse
 
-from ZSI import TC
-from ZSI.client import _Binding
-from ZSI.generate import commands,containers
-from ZSI.schema import GED, GTD
+from pysphere.ZSI import TC
+from pysphere.ZSI.client import _Binding
+from pysphere.ZSI.generate import commands,containers
+from pysphere.ZSI.schema import GED, GTD
 
-import wstools
+import pysphere.ZSI.wstools as wstools
 
 
 #url_to_mod = re.compile(r'<([^ \t\n\r\f\v:]+:)?include\s+location\s*=\s*"(\S+)"')
@@ -155,7 +155,7 @@ class ServiceProxy:
             if not self._pyclass:
                 containers.ContainerBase.func_aname = lambda instnc,n: str(n)
 
-            from ZSI.wstools import XMLSchema
+            from pysphere.ZSI.wstools import XMLSchema
             reader = XMLSchema.SchemaReader(base_url=location)
             if xml is not None and isinstance(xml, basestring):
                 schema = reader.loadFromString(xml)

@@ -4,14 +4,14 @@
 '''
 
 from xml.dom import expatbuilder
-from ZSI import _copyright, _children, _attrs, _child_elements, _stringtypes, \
+from pysphere.ZSI import _copyright, _children, _attrs, _child_elements, _stringtypes, \
         _backtrace, EvaluateException, ParseException, _valid_encoding, \
         _Node, _find_attr, _resolve_prefix
-from ZSI.TC import AnyElement
+from pysphere.ZSI.TC import AnyElement
 import types
 
-from wstools.Namespaces import SOAP, XMLNS
-from wstools.Utility import SplitQName
+from pysphere.ZSI.wstools.Namespaces import SOAP, XMLNS
+from pysphere.ZSI.wstools.Utility import SplitQName
 
 _find_actor = lambda E: E.getAttributeNS(SOAP.ENV, "actor") or None
 _find_mu = lambda E: E.getAttributeNS(SOAP.ENV, "mustUnderstand")

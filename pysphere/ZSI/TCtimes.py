@@ -3,9 +3,9 @@
 '''Typecodes for dates and times.
 '''
 
-from ZSI import _copyright, _floattypes, _inttypes, _get_idstr, EvaluateException
-from ZSI.TC import TypeCode, SimpleType
-from ZSI.wstools.Namespaces import SCHEMA
+from pysphere.ZSI import _copyright, _floattypes, _inttypes, _get_idstr, EvaluateException
+from pysphere.ZSI.TC import TypeCode, SimpleType
+from pysphere.ZSI.wstools.Namespaces import SCHEMA
 import operator, re, time as _time
 from time import mktime as _mktime, localtime as _localtime, gmtime as _gmtime
 from datetime import tzinfo as _tzinfo, timedelta as _timedelta,\

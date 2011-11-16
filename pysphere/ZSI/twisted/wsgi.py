@@ -10,9 +10,9 @@ from StringIO import StringIO
 from zope.interface import classProvides, implements, Interface
 
 # ZSI imports
-from ZSI import _get_element_nsuri_name, EvaluateException, ParseException,\
+from pysphere.ZSI import _get_element_nsuri_name, EvaluateException, ParseException,\
     fault, ParsedSoap, SoapWriter
-from ZSI.twisted.reverse import DataHandler, ReverseHandlerChain,\
+from pysphere.ZSI.twisted.reverse import DataHandler, ReverseHandlerChain,\
     HandlerChainInterface
 
 """
@@ -233,7 +233,7 @@ def _issoapmethod(f):
 def _resourceToWSDL(resource):
     from xml.etree import ElementTree
     from xml.etree.ElementTree import Element, QName
-    from ZSI.wstools.Namespaces import WSDL
+    from pysphere.ZSI.wstools.Namespaces import WSDL
 
     r = resource
     methods = filter(_issoapmethod, map(lambda i: getattr(r, i), dir(r)))

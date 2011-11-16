@@ -5,9 +5,9 @@
 
 import types, os, sys
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
-from ZSI import *
-from ZSI import _child_elements, _copyright, _seqtypes, _find_arraytype, _find_type, resolvers
-from ZSI.auth import _auth_tc, AUTH, ClientBinding
+from pysphere.ZSI import *
+from pysphere.ZSI import _child_elements, _copyright, _seqtypes, _find_arraytype, _find_type, resolvers
+from pysphere.ZSI.auth import _auth_tc, AUTH, ClientBinding
 
 
 # Client binding information is stored in a global. We provide an accessor

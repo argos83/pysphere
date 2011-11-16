@@ -3,7 +3,7 @@
 '''SOAP messaging parsing.
 '''
 
-from ZSI import _copyright, _child_elements, EvaluateException, TC
+from pysphere.ZSI import _copyright, _child_elements, EvaluateException, TC
 import multifile, mimetools, urllib
 from base64 import decodestring as b64decode
 import cStringIO as StringIO

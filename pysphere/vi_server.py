@@ -29,10 +29,7 @@
 
 import sys
 import os
-curdir = os.path.dirname(sys.modules[__name__].__file__)
-sys.path.append(curdir)
 from resources import VimService_services as VI
-sys.path.pop()
 
 from resources.vi_exception import *
 from vi_virtual_machine import VIVirtualMachine

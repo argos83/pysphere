@@ -3,12 +3,12 @@
 # See LBNLCopyright for copyright notice!
 ###########################################################################
 
-import ZSI
-from ZSI import TC, TCtimes, TCcompound
-from ZSI.TC import TypeCode
-from ZSI import _copyright, EvaluateException
-from ZSI.wstools.Utility import SplitQName
-from ZSI.wstools.Namespaces import SOAP, SCHEMA
+import pysphere.ZSI as ZSI
+from pysphere.ZSI import TC, TCtimes, TCcompound
+from pysphere.ZSI.TC import TypeCode
+from pysphere.ZSI import _copyright, EvaluateException
+from pysphere.ZSI.wstools.Utility import SplitQName
+from pysphere.ZSI.wstools.Namespaces import SOAP, SCHEMA
 
 ###########################################################################
 # Module Classes: BaseTypeInterpreter

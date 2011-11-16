@@ -3,12 +3,12 @@
 '''SOAP message serialization.
 '''
 
-from ZSI import _copyright, _get_idstr, ZSI_SCHEMA_URI
-from ZSI import _backtrace, _stringtypes, _seqtypes
-from ZSI.wstools.Utility import MessageInterface, ElementProxy
-from ZSI.wstools.Namespaces import XMLNS, SOAP, SCHEMA
-from ZSI.wstools.c14n import Canonicalize
-from ZSI.wstools.MIMEAttachment import MIMEMessage
+from pysphere.ZSI import _copyright, _get_idstr, ZSI_SCHEMA_URI
+from pysphere.ZSI import _backtrace, _stringtypes, _seqtypes
+from pysphere.ZSI.wstools.Utility import MessageInterface, ElementProxy
+from pysphere.ZSI.wstools.Namespaces import XMLNS, SOAP, SCHEMA
+from pysphere.ZSI.wstools.c14n import Canonicalize
+from pysphere.ZSI.wstools.MIMEAttachment import MIMEMessage
 
 import types
 

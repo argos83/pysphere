@@ -149,7 +149,7 @@ import types as _types
 
 ##
 ##  Public constants.
-from ZSI.wstools.Namespaces import ZSI_SCHEMA_URI
+from pysphere.ZSI.wstools.Namespaces import ZSI_SCHEMA_URI
 UNICODE_ENCODING = 'utf-8'
 
 ##
@@ -168,7 +168,7 @@ _child_elements = lambda E: [ n for n in (E.childNodes or [])
 
 ##
 ##  Stuff imported from elsewhere.
-from ZSI.wstools.Namespaces import SOAP as _SOAP, SCHEMA as _SCHEMA, XMLNS as _XMLNS
+from pysphere.ZSI.wstools.Namespaces import SOAP as _SOAP, SCHEMA as _SCHEMA, XMLNS as _XMLNS
 
 ##
 ##  Low-level DOM oriented utilities; useful for typecode implementors.
@@ -387,7 +387,7 @@ from parse import ParsedSoap
 from fault import Fault, \
     FaultFromActor, FaultFromException, FaultFromFaultMessage, \
     FaultFromNotUnderstood, FaultFromZSIException
-import ZSI.TC as TC
+from pysphere.ZSI import TC
 TC.RegisterType(TC.String, minOccurs=0, nillable=False)
 TC.RegisterType(TC.URI, minOccurs=0, nillable=False)
 TC.RegisterType(TC.Base64String, minOccurs=0, nillable=False)
