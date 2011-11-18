@@ -106,7 +106,7 @@ class VIVirtualMachine:
             raise VIApiException(e)
 
     def reset(self, sync_run=True):
-        """Attemps to reset the VM. If @sync_run is True (default) waits for the
+        """Attempts to reset the VM. If @sync_run is True (default) waits for the
         task to finish, and returns (raises an exception if the task didn't
         succeed). If sync_run is set to False the task is started an a VITask
         instance is returned. """
@@ -131,6 +131,28 @@ class VIVirtualMachine:
         except (VI.ZSI.FaultException), e:
             raise VIApiException(e)
 
+    def suspend(self, sync_run=True):
+        """Attempts to suspend the VM (it must be powered on)"""
+        try:
+            request = VI.SuspendVM_TaskRequestMsg()
+            mor_vm = request.new__this(self._mor)
+            mor_vm.set_attribute_type(self._mor.get_attribute_type())
+            request.set_element__this(mor_vm)
+
+            task = self._server._proxy.SuspendVM_Task(request)._returnval
+            vi_task = VITask(task, self._server)
+            if sync_run:
+                status = vi_task.wait_for_state([vi_task.STATE_SUCCESS,
+                                                 vi_task.STATE_ERROR])
+                if status == vi_task.STATE_ERROR:
+                    raise VIException(vi_task.get_error_message(),
+                                                          FaultTypes.TASK_ERROR)
+                return
+
+            return vi_task
+
+        except (VI.ZSI.FaultException), e:
+            raise VIApiException(e)
 
     def reboot_guest(self):
         """Issues a command to the guest operating system asking it to perform

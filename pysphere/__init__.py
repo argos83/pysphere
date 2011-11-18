@@ -163,8 +163,10 @@
 # accompanying credits file.
 #
 #--
-__all__ = ['VIServer', 'VIException', 'VIApiException']
+__all__ = ['VIServer', 'VIException', 'VIApiException',
+           'VMPowerState', 'ToolsStatus']
 
 from vi_server import VIServer
+from vi_virtual_machine import VMPowerState, ToolsStatus
 from resources.vi_exception import VIException, VIApiException
 #from version import version as __version__

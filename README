@@ -1,16 +1,65 @@
-http://pysphere.googlecode.com
+========
+PySphere 
+========
+Python API for interacting with the vSphere Web Services SDK.
+-------------------------------------------------------------
 
-Python API for interaction with the vSphere Web Services SDK.
+Visit the project_ site for more information.
 
-Among other operations, this api allows the user to:
+.. _project: http://pysphere.googlecode.com
 
- * Query hosts, datacenters, resource pools, virtual machines
- * VM: Power on, power off, reset, revert to snapshot, get properties, update vmware tools
- * Create and delete snapshots
- * Hosts statistics and performance monitoring
+**Among other operations, this api allows the user to:**
+
+- Connect to VMWare's ESX, ESXi, Virtual Center, Virtual Server hosts 
+- Query hosts, datacenters, resource pools, virtual machines
+- VMs: Power on, power off, reset, revert to snapshot, get properties, update 
+  vmware tools
+- Create and delete snapshots
+- Get hosts statistics and monitor performance
+
+It's built upon a slightly modified version of ZSI_ (that comes bundled-in) 
+which makes it really fast in contrast to other python SOAP libraries that don't
+provide code generation.
+
+.. _ZSI: http://pywebsvcs.sourceforge.net/zsi.html
+
+Installation
+------------
+
+The simplest way is using easy_install:
+
+::
+
+  easy_install pysphere
+
+Or you can find the source package and windows installer in the downloads_ 
+section. To install it from the source package:
+
+.. _downloads: http://code.google.com/p/pysphere/downloads/list
+
+1. Unzip the package
+2. run: ``python setup.py install``
+
+Quick Example
+-------------
+
+Here's how you power on a virtual machine. See also the `getting started`_ guide
+and the project's wiki_ with the full documentation.
+
+.. _getting started: http://code.google.com/p/pysphere/wiki/GettingStarted
+.. _wiki: http://code.google.com/p/pysphere/w/list
+
+>>> from pysphere import VIServer
+>>> server = VIServer()
+>>> server.connect("my.esx.host.com", "myusername", "secret")
+>>> vm = server.get_vm_by_path("[datastore] path/to/file.vmx")
+>>> vm.power_on()
+>>> print vm.get_status()
+POWERED ON
 
 
-== LICENSE ==
+License
+-------
 
 Copyright (c) 2011, Sebastian Tello
 All rights reserved.
@@ -40,7 +89,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 
-== ZSI LICENCSE ==
+ZSI License
+-----------
 
 Copyright (c) 2003, The Regents of the University of California,
 through Lawrence Berkeley National Laboratory (subject to receipt of
