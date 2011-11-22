@@ -42,6 +42,9 @@ class VIVirtualMachine:
         self._properties = {}
         self._root_snapshots = []
         self._snapshot_list = []
+        self._disks = []
+        self._files = {}
+        self._devices = {}
         self.__current_snapshot = None
         self._resource_pool = None
         self.__update_properties()
@@ -763,6 +766,7 @@ class VIVirtualMachine:
                                                         self._mor, get_all=True)
             property_set = object_content_array[0].get_element_propSet()
             if property_set:
+                # First process config, as some datasets below depend on it
                 for prop in property_set:
                     if prop.Name == 'config':
                         if hasattr(prop.Val.Files, 'VmPathName'):
@@ -773,13 +777,83 @@ class VIVirtualMachine:
                         if hasattr(prop.Val.Hardware, 'Device'):
                             devs = prop.Val.Hardware.Device
                             if len(devs)>0:
+                                # Save devices in _devices hash
+                                for dev in devs:
+                                    d = {
+                                        'key': dev.Key,
+                                        'type':  dev.typecode.type[1],
+                                        'unitNumber': getattr(dev,'UnitNumber',None),
+                                        'label': getattr(getattr(dev,'DeviceInfo',None),'Label',None),
+                                        'summary': getattr(getattr(dev,'DeviceInfo',None),'Summary',None),
+                                        '_obj': dev
+                                    }
+                                    # Network Device
+                                    if hasattr(dev,'MacAddress'):
+                                        d['macAddress'] = dev.MacAddress
+                                        d['addressType'] = getattr(dev,'AddressType',None)
+                                    # Video Card
+                                    if hasattr(dev,'VideoRamSizeInKB'):
+                                        d['videoRamSizeInKB'] = dev.VideoRamSizeInKB
+                                    # Disk
+                                    if hasattr(dev,'CapacityInKB'):
+                                        d['capacityInKB'] = dev.CapacityInKB
+                                    # Controller
+                                    if hasattr(dev,'BusNumber'):
+                                        d['busNumber'] = dev.BusNumber
+                                        d['devices'] = getattr(dev,'Device',[])
+
+                                    self._devices[dev.Key] = d
+                                self._properties['devices'] = self._devices
+
+                                # Get MAC Address off first network card
                                 for dev in devs:
                                     if hasattr(dev, 'MacAddress'):
                                         self._properties['mac_address'] = dev \
                                                                      .MacAddress
                                         break
+                        if hasattr(prop.Val.Hardware, 'MemoryMB'):
+                            self._properties['memory_mb'] = prop.Val.Hardware.MemoryMB
+
+                        if hasattr(prop.Val.Hardware, 'NumCPU'):
+                            self._properties['num_cpu'] = prop.Val.Hardware.NumCPU
+
+                # Now parse the rest
+                for prop in property_set:
                     if prop.Name == 'resourcePool':
                         self._resource_pool = prop.Val
+
+                    elif prop.Name == 'layoutEx':
+                        for file in prop.Val.File:
+                            self._files[file.Key] = {
+                                'key': file.Key,
+                                'name': file.Name,
+                                'size': file.Size,
+                                'type': file.Type
+                            }
+                        self._properties['files'] = self._files
+
+                        for disk in prop.Val.Disk:
+                            files = []
+                            committed = 0
+                            store = None
+                            for c in disk.Chain:
+                                for k in c.FileKey:
+                                    f = self._files[k]
+                                    files.append(f)
+                                    if f['type'] == 'diskExtent':
+                                        committed += f['size']
+                                    if f['type'] == 'diskDescriptor':
+                                        store = f['name']
+                            dev = self._devices[disk.Key]
+                            self._disks.append({
+                                'device': dev,
+                                'files': files,
+                                'capacity': dev['capacityInKB'],
+                                'committed': committed/1024,
+                                'descriptor': store,
+                                'label': dev['label'],
+                            })
+                        self._properties['disks'] = self._disks
 
                     elif prop.Name == 'guest':
                         if hasattr(prop.Val, 'HostName'):
