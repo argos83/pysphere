@@ -29,22 +29,23 @@
 
 class VISnapshot:
 
-    def __init__(self, do_vm_snapshot_tree, parent=None):
+    def __init__(self, snapshot_tree_prop, parent=None):
         self._parent = parent
-        self._mor = do_vm_snapshot_tree.Snapshot
-        self._state = do_vm_snapshot_tree.State
-        self._name = do_vm_snapshot_tree.Name
-        self._description = do_vm_snapshot_tree.Description
-        self._create_time = do_vm_snapshot_tree.CreateTime
+        self._mor = snapshot_tree_prop.snapshot._obj
+        self._state = snapshot_tree_prop.state
+        self._name = snapshot_tree_prop.name
+        self._description = snapshot_tree_prop.description
+        self._create_time = snapshot_tree_prop.createTime
         self.__children = []
-        if hasattr(do_vm_snapshot_tree, 'ChildSnapshotList'):
-            for child in do_vm_snapshot_tree.ChildSnapshotList:
-                snap = VISnapshot(child, self)
-                self.__children.append(snap)
+        for child in getattr(snapshot_tree_prop, 'childSnapshotList', []):
+            snap = VISnapshot(child, self)
+            self.__children.append(snap)
         self._index = 0
 
+        
     def get_children(self):
-        """Returns a list of VISnapshot instances represeting this snapshot children"""
+        """Returns a list of VISnapshot instances representing this snapshot's
+        children"""
         return self.__children[:]
 
     def get_create_time(self):

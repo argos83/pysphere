@@ -33,6 +33,7 @@ from resources import VimService_services as VI
 from resources.vi_exception import VIException, VIApiException, FaultTypes
 from vi_task import VITask
 from vi_snapshot import VISnapshot
+from vi_property import VIProperty
 
 class VIVirtualMachine:
 
@@ -47,9 +48,11 @@ class VIVirtualMachine:
         self._devices = {}
         self.__current_snapshot = None
         self._resource_pool = None
+        self.properties = None
+        self._properties = {}
         self.__update_properties()
         self._mor_vm_task_collector = None
-
+        
 
     def power_on(self, sync_run=True, host=None):
         """Attemps to power on the VM. If @sync_run is True (default) waits for
@@ -760,142 +763,143 @@ class VIVirtualMachine:
         (i.e. name, path, snapshot tree, etc). To reduce traffic, all the
         properties are retrieved from one shot, if you expect changes, then you
         should call this method before other"""
+        
+        def update_devices(devices):
+            for dev in devices:
+                d = {
+                     'key': dev.key,
+                     'type': dev._type,
+                     'unitNumber': getattr(dev,'unitNumber',None),
+                     'label': getattr(getattr(dev,'deviceInfo',None),
+                                      'label',None),
+                     'summary': getattr(getattr(dev,'deviceInfo',None),
+                                        'summary',None),
+                     '_obj': dev
+                     }
+                # Network Device
+                if hasattr(dev,'macAddress'):
+                    d['macAddress'] = dev.macAddress
+                    d['addressType'] = getattr(dev,'addressType',None)
+                # Video Card
+                if hasattr(dev,'videoRamSizeInKB'):
+                    d['videoRamSizeInKB'] = dev.videoRamSizeInKB
+                # Disk
+                if hasattr(dev,'capacityInKB'):
+                    d['capacityInKB'] = dev.capacityInKB
+                # Controller
+                if hasattr(dev,'busNumber'):
+                    d['busNumber'] = dev.busNumber
+                    d['devices'] = getattr(dev,'device',[])
+                    
+                self._devices[dev.key] = d
+        
+        def update_disks(disks):
+            for disk in disks:
+                files = []
+                committed = 0
+                store = None
+                for c in getattr(disk, "chain", []):
+                    for k in c.fileKey:
+                        f = self._files[k]
+                        files.append(f)
+                        if f['type'] == 'diskExtent':
+                            committed += f['size']
+                        if f['type'] == 'diskDescriptor':
+                            store = f['name']
+                dev = self._devices[disk.key]
+                
+                self._disks.append({
+                                   'device': dev,
+                                   'files': files,
+                                   'capacity': dev['capacityInKB'],
+                                   'committed': committed/1024,
+                                   'descriptor': store,
+                                   'label': dev['label'],
+                                   })
+        
+        def update_files(files):
+            for file in files:
+                self._files[file.key] = {
+                                        'key': file.key,
+                                        'name': file.name,
+                                        'size': file.size,
+                                        'type': file.type
+                                        }
+                
+        
         try:
-            self._properties = {}
-            object_content_array = self._server._get_object_properties(
-                                                        self._mor, get_all=True)
-            property_set = object_content_array[0].get_element_propSet()
-            if property_set:
-                # First process config, as some datasets below depend on it
-                for prop in property_set:
-                    if prop.Name == 'config':
-                        if hasattr(prop.Val.Files, 'VmPathName'):
-                            self._properties['path'] = prop.Val.Files.VmPathName
-                        self._properties['guest_id'] = prop.Val.GuestId
-                        self._properties['guest_full_name'] = prop.Val \
-                                                                  .GuestFullName
-                        if hasattr(prop.Val.Hardware, 'Device'):
-                            devs = prop.Val.Hardware.Device
-                            if len(devs)>0:
-                                # Save devices in _devices hash
-                                for dev in devs:
-                                    d = {
-                                        'key': dev.Key,
-                                        'type':  dev.typecode.type[1],
-                                        'unitNumber': getattr(dev,'UnitNumber',None),
-                                        'label': getattr(getattr(dev,'DeviceInfo',None),'Label',None),
-                                        'summary': getattr(getattr(dev,'DeviceInfo',None),'Summary',None),
-                                        '_obj': dev
-                                    }
-                                    # Network Device
-                                    if hasattr(dev,'MacAddress'):
-                                        d['macAddress'] = dev.MacAddress
-                                        d['addressType'] = getattr(dev,'AddressType',None)
-                                    # Video Card
-                                    if hasattr(dev,'VideoRamSizeInKB'):
-                                        d['videoRamSizeInKB'] = dev.VideoRamSizeInKB
-                                    # Disk
-                                    if hasattr(dev,'CapacityInKB'):
-                                        d['capacityInKB'] = dev.CapacityInKB
-                                    # Controller
-                                    if hasattr(dev,'BusNumber'):
-                                        d['busNumber'] = dev.BusNumber
-                                        d['devices'] = getattr(dev,'Device',[])
-
-                                    self._devices[dev.Key] = d
-                                self._properties['devices'] = self._devices
-
-                                # Get MAC Address off first network card
-                                for dev in devs:
-                                    if hasattr(dev, 'MacAddress'):
-                                        self._properties['mac_address'] = dev \
-                                                                     .MacAddress
-                                        break
-                        if hasattr(prop.Val.Hardware, 'MemoryMB'):
-                            self._properties['memory_mb'] = prop.Val.Hardware.MemoryMB
-
-                        if hasattr(prop.Val.Hardware, 'NumCPU'):
-                            self._properties['num_cpu'] = prop.Val.Hardware.NumCPU
-
-                # Now parse the rest
-                for prop in property_set:
-                    if prop.Name == 'resourcePool':
-                        self._resource_pool = prop.Val
-
-                    elif prop.Name == 'layoutEx':
-                        for file in prop.Val.File:
-                            self._files[file.Key] = {
-                                'key': file.Key,
-                                'name': file.Name,
-                                'size': file.Size,
-                                'type': file.Type
-                            }
-                        self._properties['files'] = self._files
-
-                        for disk in prop.Val.Disk:
-                            files = []
-                            committed = 0
-                            store = None
-                            for c in disk.Chain:
-                                for k in c.FileKey:
-                                    f = self._files[k]
-                                    files.append(f)
-                                    if f['type'] == 'diskExtent':
-                                        committed += f['size']
-                                    if f['type'] == 'diskDescriptor':
-                                        store = f['name']
-                            dev = self._devices[disk.Key]
-                            self._disks.append({
-                                'device': dev,
-                                'files': files,
-                                'capacity': dev['capacityInKB'],
-                                'committed': committed/1024,
-                                'descriptor': store,
-                                'label': dev['label'],
-                            })
-                        self._properties['disks'] = self._disks
-
-                    elif prop.Name == 'guest':
-                        if hasattr(prop.Val, 'HostName'):
-                            self._properties['hostname'] = prop.Val.HostName
-                        if hasattr(prop.Val, 'IpAddress'):
-                            self._properties['ip_address'] = prop.Val.IpAddress
-                        if hasattr(prop.Val, 'Net'):
-                            nics = []
-                            for nic_info in prop.Val.Net:
-                                nic = {'connected':None,
-                                       'mac_address':None,
-                                       'ip_addresses':[],
-                                       'network':None}
-                                if hasattr(nic_info, 'Connected'):
-                                    nic['connected'] = nic_info.Connected
-                                if hasattr(nic_info, 'MacAddress'):
-                                    nic['mac_address'] = nic_info.MacAddress
-                                if hasattr(nic_info, 'IpAddress'):
-                                    nic['ip_addresses'] = nic_info.IpAddress
-                                if hasattr(nic_info, 'Network'):
-                                    nic['network'] = nic_info.Network
-                                nics.append(nic)
-                            self._properties['net'] = nics
-
-                    elif prop.Name == 'name':
-                        self._properties['name'] = prop.Val
-
-                    elif prop.Name == 'snapshot':
-                        do_vm_snapshot_info = prop.Val
-                        self.__current_snapshot = None
-                        if hasattr(do_vm_snapshot_info, 'CurrentSnapshot'):
-                            self.__current_snapshot = do_vm_snapshot_info \
-                                                                .CurrentSnapshot
-
-                        for root_snap in do_vm_snapshot_info.RootSnapshotList:
-                            root = VISnapshot(root_snap)
-                            self._root_snapshots.append(root)
-
-                        self.__create_snapshot_list()
-
+            self.properties = VIProperty(self._server, self._mor)
         except (VI.ZSI.FaultException), e:
-            raise VIApiException(e)
+            raise VIApiException(e)      
+        
+        p = {}
+        p['name'] = self.properties.name
+        
+        #------------------------#
+        #-- UPDATE CONFIG INFO --#
+        if hasattr(self.properties, "config"):
+            p['guest_id'] = self.properties.config.guestId
+            p['guest_full_name'] = self.properties.config.guestFullName
+            if hasattr(self.properties.config.files, "vmPathName"):
+                p['path'] = self.properties.config.files.vmPathName
+            p['memory_mb'] = self.properties.config.hardware.memoryMB
+            p['num_cpu'] = self.properties.config.hardware.numCPU
+        
+            if hasattr(self.properties.config.hardware, "device"):
+                update_devices(self.properties.config.hardware.device)
+                p['devices'] = self._devices
+        
+        #-----------------------#
+        #-- UPDATE GUEST INFO --#
+        
+        if hasattr(self.properties, "guest"):
+            if hasattr(self.properties.guest, "hostName"):
+                p['hostname'] = self.properties.guest.hostName
+            if hasattr(self.properties.guest, "ipAddress"):
+                p['ip_address'] = self.properties.guest.ipAddress
+            nics = []
+            if hasattr(self.properties.guest, "net"):
+                for nic in self.properties.guest.net:
+                    nics.append({
+                                 'connected':getattr(nic, "connected", None),
+                                 'mac_address':getattr(nic, "macAddress", None),
+                                 'ip_addresses':getattr(nic, "ipAddress", []),
+                                 'network':getattr(nic, "network", None)
+                                })
+           
+                p['net'] = nics
+        
+        #------------------------#
+        #-- UPDATE LAYOUT INFO --#
+        
+        if hasattr(self.properties, "layoutEx"):
+            if hasattr(self.properties.layoutEx, "file"):
+                update_files(self.properties.layoutEx.file)
+                p['files'] = self._files
+            if hasattr(self.properties.layoutEx, "disk"):
+                update_disks(self.properties.layoutEx.disk)
+                p['disks'] = self._disks
+            
+        self._properties = p
+        
+        #----------------------#
+        #-- UPDATE SNAPSHOTS --#
+        
+        if hasattr(self.properties, "snapshot"):
+            if hasattr(self.properties.snapshot, "currentSnapshot"):
+                self.__current_snapshot = \
+                                   self.properties.snapshot.currentSnapshot._obj
+            
+            for root_snap in self.properties.snapshot.rootSnapshotList:
+                root = VISnapshot(root_snap)
+                self._root_snapshots.append(root)
+            self.__create_snapshot_list()
+
+        #-----------------------#
+        #-- SET RESOURCE POOL --#
+        if hasattr(self.properties, "resourcePool"):
+            self._resource_pool = self.properties.resourcePool._obj
+            
 
 class VMPowerState:
     POWERED_ON              = 'POWERED ON'

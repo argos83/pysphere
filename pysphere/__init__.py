@@ -164,9 +164,10 @@
 #
 #--
 __all__ = ['VIServer', 'VIException', 'VIApiException',
-           'VMPowerState', 'ToolsStatus']
+           'VMPowerState', 'ToolsStatus', 'VIProperty']
 
 from vi_server import VIServer
 from vi_virtual_machine import VMPowerState, ToolsStatus
+from vi_property import VIProperty
 from resources.vi_exception import VIException, VIApiException
 #from version import version as __version__
