@@ -1,7 +1,10 @@
 #! /usr/bin/env python
 
 import sys
-from distutils.core import setup
+try:
+    from setuptools import setup
+except:
+    from distutils.core import setup
 
 
 VERSION = (0, 1, 0)

@@ -4,7 +4,7 @@
 ###########################################################################
 
 import pydoc, sys, warnings
-from .. import TC
+from pysphere.ZSI import TC
 
 # If function.__name__ is read-only, fail
 def _x(): return
