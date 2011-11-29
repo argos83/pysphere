@@ -55,3 +55,5 @@ class FaultTypes:
     TIME_OUT           = 'Operation Timed Out'
     SNAPSHOT_NOT_FOUND = 'Snapshot Not Found'
     TASK_ERROR         = 'Task Error'
+    NOT_SUPPORTED      = 'Operation Not Supported'
+    INVALID_OPERATION  = 'Invalid Operation'

@@ -28,12 +28,14 @@
 #--
 
 import time
+import os
 
 from resources import VimService_services as VI
 from resources.vi_exception import VIException, VIApiException, FaultTypes
 from vi_task import VITask
 from vi_snapshot import VISnapshot
 from vi_property import VIProperty
+from macpath import isfile
 
 class VIVirtualMachine:
 
@@ -52,8 +54,32 @@ class VIVirtualMachine:
         self._properties = {}
         self.__update_properties()
         self._mor_vm_task_collector = None
+        #Define guest operation managers
+        self._auth_mgr = None
+        self._auth_obj = None
+        self._file_mgr = None
+        self._proc_mgr = None
+        try:
+            guest_op = VIProperty(self._server, self._server._do_service_content
+                                                        .GuestOperationsManager)
+            self._auth_mgr = guest_op.authManager._obj
+            try:
+                self._file_mgr = guest_op.fileManager._obj
+            except AttributeError:
+                #file manager not present
+                pass
+            try:
+                #process manager not present
+                self._proc_mgr = guest_op.processManager._obj
+            except:
+                pass
+        except AttributeError:
+            #guest operations not supported (since API 5.0)
+            pass
         
-
+    #-------------------#
+    #-- POWER METHODS --#
+    #-------------------#
     def power_on(self, sync_run=True, host=None):
         """Attemps to power on the VM. If @sync_run is True (default) waits for
         the task to finish, and returns (raises an exception if the task didn't
@@ -160,6 +186,121 @@ class VIVirtualMachine:
         except (VI.ZSI.FaultException), e:
             raise VIApiException(e)
 
+    def get_status(self, basic_status=False):
+        """Returns any of the status strings defined in VMPowerState:
+        'POWERED ON', 'POWERED OFF', 'SUSPENDED', 'POWERING ON', 'POWERING OFF',
+        'SUSPENDING', 'RESETTING', 'BLOCKED ON MSG', 'REVERTING TO SNAPSHOT',
+        'UNKNOWN'
+        """
+        #we can't check tasks in a VMWare Server or ESXi
+        if not basic_status:
+            try:
+                if not self._mor_vm_task_collector:
+                    self.__create_pendant_task_collector()
+            except VIApiException:
+                basic_status = True
+
+        #get the VM current power state, and messages blocking if any
+        vi_power_states = {'poweredOn':VMPowerState.POWERED_ON,
+                           'poweredOff': VMPowerState.POWERED_OFF,
+                           'suspended': VMPowerState.SUSPENDED}
+
+        vm_has_question = False
+        power_state = None
+
+        oc_vm_status_msg = self._server._get_object_properties(
+                      self._mor,
+                      property_names=['runtime.question', 'runtime.powerState']
+                      )
+        oc_vm_status_msg = oc_vm_status_msg[0]
+        properties = oc_vm_status_msg.PropSet
+        for prop in properties:
+            if prop.Name == 'runtime.powerState':
+                power_state = prop.Val
+            if prop.Name == 'runtime.question':
+                return VMPowerState.BLOCKED_ON_MSG
+
+        #we can't check tasks in a VMWare Server
+        if self._server.get_server_type() == 'VMware Server' or basic_status:
+            return vi_power_states.get(power_state, VMPowerState.UNKNOWN)
+
+        #on the other hand, get the current task running or queued for this VM
+        oc_task_history = self._server._get_object_properties(
+                      self._mor_vm_task_collector,
+                      property_names=['latestPage']
+                      )
+        oc_task_history = oc_task_history[0]
+        properties = oc_task_history.PropSet
+        if len(properties) == 0:
+            return vi_power_states.get(power_state, VMPowerState.UNKNOWN)
+        for prop in properties:
+            if prop.Name == 'latestPage':
+                tasks_info_array = prop.Val.TaskInfo
+                if len(tasks_info_array) == 0:
+                    return vi_power_states.get(power_state,VMPowerState.UNKNOWN)
+                for task_info in tasks_info_array:
+                    desc = task_info.DescriptionId
+                    if task_info.State in ['success', 'error']:
+                        continue
+
+                    if desc == 'VirtualMachine.powerOff' and power_state in [
+                                                      'poweredOn', 'suspended']:
+                        return VMPowerState.POWERING_OFF
+                    if desc in ['VirtualMachine.revertToCurrentSnapshot',
+                                'vm.Snapshot.revert']:
+                        return VMPowerState.REVERTING_TO_SNAPSHOT
+                    if desc == 'VirtualMachine.reset' and power_state in [
+                                                      'poweredOn', 'suspended']:
+                        return VMPowerState.RESETTING
+                    if desc == 'VirtualMachine.suspend' and power_state in [
+                                                                   'poweredOn']:
+                        return VMPowerState.SUSPENDING
+                    if desc in ['Drm.ExecuteVmPowerOnLRO',
+                                'VirtualMachine.powerOn'] and power_state in [
+                                                     'poweredOff', 'suspended']:
+                        return VMPowerState.POWERING_ON
+                return vi_power_states.get(power_state, VMPowerState.UNKNOWN)
+
+    def is_powering_off(self):
+        """Returns True if the VM is being powered off"""
+        return self.get_status() == VMPowerState.POWERING_OFF
+
+    def is_powered_off(self):
+        """Returns True if the VM is powered off"""
+        return self.get_status() == VMPowerState.POWERED_OFF
+
+    def is_powering_on(self):
+        """Returns True if the VM is being powered on"""
+        return self.get_status() == VMPowerState.POWERING_ON
+
+    def is_powered_on(self):
+        """Returns True if the VM is powered off"""
+        return self.get_status() == VMPowerState.POWERED_ON
+
+    def is_suspending(self):
+        """Returns True if the VM is being suspended"""
+        return self.get_status() == VMPowerState.SUSPENDING
+
+    def is_suspended(self):
+        """Returns True if the VM is suspended"""
+        return self.get_status() == VMPowerState.SUSPENDED
+
+    def is_resetting(self):
+        """Returns True if the VM is being resetted"""
+        return self.get_status() == VMPowerState.RESETTING
+
+    def is_blocked_on_msg(self):
+        """Returns True if the VM is blocked because of a question message"""
+        return self.get_status() == VMPowerState.BLOCKED_ON_MSG
+
+    def is_reverting(self):
+        """Returns True if the VM is being reverted to a snapshot"""
+        return self.get_status() == VMPowerState.REVERTING_TO_SNAPSHOT
+
+    #-------------------------#
+    #-- GUEST POWER METHODS --#
+    #-------------------------#
+    
     def reboot_guest(self):
         """Issues a command to the guest operating system asking it to perform
         a reboot. Returns immediately and does not wait for the guest operating
@@ -194,17 +335,35 @@ class VIVirtualMachine:
     def standby_guest(self):
         """Issues a command to the guest operating system asking it to prepare
         for a suspend operation. Returns immediately and does not wait for the
-        guest operating system to complete the operation.  """
+        guest operating system to complete the operation."""
         try:
             request = VI.StandbyGuestRequestMsg()
             mor_vm = request.new__this(self._mor)
             mor_vm.set_attribute_type(self._mor.get_attribute_type())
             request.set_element__this(mor_vm)
-
+            
             self._server._proxy.StandbyGuest(request)
-
+            
         except (VI.ZSI.FaultException), e:
             raise VIApiException(e)
+
+    #----------------------#
+    #-- SNAPSHOT METHODS --#
+    #----------------------#
+
+    def get_snapshots(self):
+        """Returns a list of VISnapshot instances of this VM"""
+        return self._snapshot_list[:]
+
+    def get_current_snapshot_name(self):
+        """Returns the name of the current snapshot (if any)."""
+        self.__update_properties()
+        if not self.__current_snapshot:
+            return None
+        for snap in self._snapshot_list:
+            if str(self.__current_snapshot) == str(snap._mor):
+                return snap._name
+        return None
 
     def revert_to_snapshot(self, sync_run=True, host=None):
         """Attemps to revert the VM to the current snapshot. If @sync_run is
@@ -418,42 +577,11 @@ class VIVirtualMachine:
 
     def refresh_snapshot_list(self):
         """Refreshes the internal list of snapshots of this VM"""
-        self.__update_properties()
+        self.__update_properties()    
 
-    def get_property(self, name='', from_cache=True):
-        """"Returns the VM property with the given @name or None if the property
-        doesn't exist or have not been set. The property is looked in the cached
-        info obtained from the last time the server was requested.
-        If you expect to get a volatile property (that might have changed since
-        the last time the properties were queried), you may set @from_cache to
-        True to refresh all the properties.
-        The properties you may get are:
-            name: Name of this entity, unique relative to its parent.
-            path: Path name to the configuration file for the virtual machine
-                  e.g., the .vmx file.
-            guest_id:
-            guest_full_name:
-            hostname:
-            ip_address:
-            mac_address
-            net: [{connected, mac_address, ip_addresses, network},...]
-        """
-        if not from_cache:
-            self.__update_properties()
-        return self._properties.get(name)
-
-    def get_properties(self, from_cache=True):
-        """Returns a dictionary of property of this VM.
-        If you expect to get a volatile property (that might have changed since
-        the last time the properties were queried), you may set @from_cache to
-        True to refresh all the properties before retrieve them."""
-        if not from_cache:
-            self.__update_properties()
-        return self._properties.copy()
-
-    def get_snapshots(self):
-        """Returns a list of VISnapshot instances of this VM"""
-        return self._snapshot_list[:]
+    #--------------------------#
+    #-- VMWARE TOOLS METHODS --#
+    #--------------------------#
 
     def upgrade_tools(self, sync_run=True, params=None):
         """Attemps to upgrade the VMWare tools in the guest.
@@ -485,79 +613,6 @@ class VIVirtualMachine:
 
         except (VI.ZSI.FaultException), e:
             raise VIApiException(e)
-
-
-    def get_status(self, basic_status=False):
-        """Returns any of the status strings defined in VMPowerState:
-        'POWERED ON', 'POWERED OFF', 'SUSPENDED', 'POWERING ON', 'POWERING OFF',
-        'SUSPENDING', 'RESETTING', 'BLOCKED ON MSG', 'REVERTING TO SNAPSHOT',
-        'UNKNOWN'
-        """
-        #we can't check tasks in a VMWare Server
-        if self._server.get_server_type()!='VMware Server' and not basic_status:
-            if not self._mor_vm_task_collector:
-                self.__create_pendant_task_collector()
-
-        #get the VM current power state, and messages blocking if any
-        vi_power_states = {'poweredOn':VMPowerState.POWERED_ON,
-                           'poweredOff': VMPowerState.POWERED_OFF,
-                           'suspended': VMPowerState.SUSPENDED}
-
-        vm_has_question = False
-        power_state = None
-
-        oc_vm_status_msg = self._server._get_object_properties(
-                      self._mor,
-                      property_names=['runtime.question', 'runtime.powerState']
-                      )
-        oc_vm_status_msg = oc_vm_status_msg[0]
-        properties = oc_vm_status_msg.PropSet
-        for prop in properties:
-            if prop.Name == 'runtime.powerState':
-                power_state = prop.Val
-            if prop.Name == 'runtime.question':
-                return VMPowerState.BLOCKED_ON_MSG
-
-        #we can't check tasks in a VMWare Server
-        if self._server.get_server_type() == 'VMware Server' or basic_status:
-            return vi_power_states.get(power_state, VMPowerState.UNKNOWN)
-
-        #on the other hand, get the current task running or queued for this VM
-        oc_task_history = self._server._get_object_properties(
-                      self._mor_vm_task_collector,
-                      property_names=['latestPage']
-                      )
-        oc_task_history = oc_task_history[0]
-        properties = oc_task_history.PropSet
-        if len(properties) == 0:
-            return vi_power_states.get(power_state, VMPowerState.UNKNOWN)
-        for prop in properties:
-            if prop.Name == 'latestPage':
-                tasks_info_array = prop.Val.TaskInfo
-                if len(tasks_info_array) == 0:
-                    return vi_power_states.get(power_state,VMPowerState.UNKNOWN)
-                for task_info in tasks_info_array:
-                    desc = task_info.DescriptionId
-                    if task_info.State in ['success', 'error']:
-                        continue
-
-                    if desc == 'VirtualMachine.powerOff' and power_state in [
-                                                      'poweredOn', 'suspended']:
-                        return VMPowerState.POWERING_OFF
-                    if desc in ['VirtualMachine.revertToCurrentSnapshot',
-                                'vm.Snapshot.revert']:
-                        return VMPowerState.REVERTING_TO_SNAPSHOT
-                    if desc == 'VirtualMachine.reset' and power_state in [
-                                                      'poweredOn', 'suspended']:
-                        return VMPowerState.RESETTING
-                    if desc == 'VirtualMachine.suspend' and power_state in [
-                                                                   'poweredOn']:
-                        return VMPowerState.SUSPENDING
-                    if desc in ['Drm.ExecuteVmPowerOnLRO',
-                                'VirtualMachine.powerOn'] and power_state in [
-                                                     'poweredOff', 'suspended']:
-                        return VMPowerState.POWERING_ON
-                return vi_power_states.get(power_state, VMPowerState.UNKNOWN)
 
     def get_tools_status(self):
         """Returns any of the status described in class ToolsStatus.
@@ -603,41 +658,510 @@ class VIVirtualMachine:
                               FaultTypes.TIME_OUT)
             time.sleep(1.5)
 
-    def is_powering_off(self):
-        """Returns True if the VM is being powered off"""
-        return self.get_status() == VMPowerState.POWERING_OFF
+    #--------------------------#
+    #-- GUEST AUTHENTICATION --#
+    #--------------------------#
+    def login_in_guest(self, user, password):
+        """Authenticates in the guest with the acquired credentials for use in 
+        subsequent guest operation calls."""
+        auth = VI.ns0.NamePasswordAuthentication_Def("NameAndPwd").pyclass()
+        auth.set_element_interactiveSession(False)
+        auth.set_element_username(user)
+        auth.set_element_password(password)
+        self.__validate_authentication(auth)
+        self._auth_obj = auth           
 
-    def is_powered_off(self):
-        """Returns True if the VM is powered off"""
-        return self.get_status() == VMPowerState.POWERED_OFF
+    #------------------------#
+    #-- GUEST FILE METHODS --#
+    #------------------------#
 
-    def is_powering_on(self):
-        """Returns True if the VM is being powered on"""
-        return self.get_status() == VMPowerState.POWERING_ON
+    def make_directory(self, path, create_parents=True):
+        """
+        Creates a directory in the guest OS
+          * path [string]: The complete path to the directory to be created.
+          * create_parents [bool]: Whether any parent directories are to be 
+                                   created. Default: True 
+        """
+        if not self._file_mgr:
+            raise VIException("Files operations not supported on this server",
+                              FaultTypes.NOT_SUPPORTED)
+        if not self._auth_obj:
+            raise VIException("You must call first login_in_guest",
+                              FaultTypes.INVALID_OPERATION)
+        try:
+            request = VI.MakeDirectoryInGuestRequestMsg()
+            _this = request.new__this(self._file_mgr)
+            _this.set_attribute_type(self._file_mgr.get_attribute_type())
+            request.set_element__this(_this)
+            vm = request.new_vm(self._mor)
+            vm.set_attribute_type(self._mor.get_attribute_type())
+            request.set_element_vm(vm)
+            request.set_element_auth(self._auth_obj)
+            request.set_element_directoryPath(path)
+            request.set_element_createParentDirectories(create_parents)
+            
+            self._server._proxy.MakeDirectoryInGuest(request)
+        except (VI.ZSI.FaultException), e:
+            raise VIApiException(e)
+    
+    def move_directory(self, src_path, dst_path):
+        """
+        Moves or renames a directory in the guest.
+          * src_path [string]: The complete path to the directory to be moved.
+          * dst_path [string]: The complete path to the where the directory is 
+                               moved or its new name. It cannot be a path to an
+                               existing directory or an existing file. 
+        """
+        if not self._file_mgr:
+            raise VIException("Files operations not supported on this server",
+                              FaultTypes.NOT_SUPPORTED)
+        if not self._auth_obj:
+            raise VIException("You must call first login_in_guest",
+                              FaultTypes.INVALID_OPERATION)
+        try:
+            request = VI.MoveDirectoryInGuestRequestMsg()
+            _this = request.new__this(self._file_mgr)
+            _this.set_attribute_type(self._file_mgr.get_attribute_type())
+            request.set_element__this(_this)
+            vm = request.new_vm(self._mor)
+            vm.set_attribute_type(self._mor.get_attribute_type())
+            request.set_element_vm(vm)
+            request.set_element_auth(self._auth_obj)
+            request.set_element_srcDirectoryPath(src_path)
+            request.set_element_dstDirectoryPath(dst_path)
+            
+            self._server._proxy.MoveDirectoryInGuest(request)
+        except (VI.ZSI.FaultException), e:
+            raise VIApiException(e)
 
-    def is_powered_on(self):
-        """Returns True if the VM is powered off"""
-        return self.get_status() == VMPowerState.POWERED_ON
+    def delete_directory(self, path, recursive):
+        """
+        Deletes a directory in the guest OS.
+          * path [string]: The complete path to the directory to be deleted.
+          * recursive [bool]: If true, all subdirectories are also deleted. 
+                              If false, the directory must be empty for the
+                              operation to succeed.  
+        """
+        if not self._file_mgr:
+            raise VIException("Files operations not supported on this server",
+                              FaultTypes.NOT_SUPPORTED)
+        if not self._auth_obj:
+            raise VIException("You must call first login_in_guest",
+                              FaultTypes.INVALID_OPERATION)
+        try:
+            request = VI.DeleteDirectoryInGuestRequestMsg()
+            _this = request.new__this(self._file_mgr)
+            _this.set_attribute_type(self._file_mgr.get_attribute_type())
+            request.set_element__this(_this)
+            vm = request.new_vm(self._mor)
+            vm.set_attribute_type(self._mor.get_attribute_type())
+            request.set_element_vm(vm)
+            request.set_element_auth(self._auth_obj)
+            request.set_element_directoryPath(path)
+            request.set_element_recursive(recursive)
+            
+            self._server._proxy.DeleteDirectoryInGuest(request)
+        except (VI.ZSI.FaultException), e:
+            raise VIApiException(e)
+        
+    def list_files(self, path, match_pattern=None):
+        """
+        Returns information about files or directories in the guest.
+          * path [string]: The complete path to the directory or file to query.
+          * match_pattern[string]: A filter for the return values. Match 
+          patterns are specified using perl-compatible regular expressions. 
+          If match_pattern isn't set, then the pattern '.*' is used. 
+          
+        Returns a list of dictionaries with these keys:
+          * path [string]: The complete path to the file 
+          * size [long]: The file size in bytes 
+          * type [string]: 'directory', 'file', or 'symlink'
+          
+        """
+        if not self._file_mgr:
+            raise VIException("Files operations not supported on this server",
+                              FaultTypes.NOT_SUPPORTED)
+        if not self._auth_obj:
+            raise VIException("You must call first login_in_guest",
+                              FaultTypes.INVALID_OPERATION)
+        def ListFilesInGuest(path, match_pattern, index, max_results):
+            try:
+                request = VI.ListFilesInGuestRequestMsg()
+                _this = request.new__this(self._file_mgr)
+                _this.set_attribute_type(self._file_mgr.get_attribute_type())
+                request.set_element__this(_this)
+                vm = request.new_vm(self._mor)
+                vm.set_attribute_type(self._mor.get_attribute_type())
+                request.set_element_vm(vm)
+                request.set_element_auth(self._auth_obj)
+                request.set_element_filePath(path)
+                if match_pattern:
+                    request.set_element_matchPattern(match_pattern)
+                if index:
+                    request.set_element_index(index)
+                if max_results:
+                    request.set_element_maxResults(max_results)
+                finfo = self._server._proxy.ListFilesInGuest(request)._returnval
+                ret = []
+                for f in getattr(finfo, "Files", []):
+                    ret.append({'path':f.Path,
+                                'size':f.Size,
+                                'type':f.Type})
+                return ret, finfo.Remaining
+            except (VI.ZSI.FaultException), e:
+                raise VIApiException(e)
+        
+        file_set, remaining = ListFilesInGuest(path, match_pattern, None, None)
+        if remaining:
+            file_set.extend(ListFilesInGuest(path, match_pattern, 
+                                            len(file_set), remaining)[0])
+        
+        return file_set
 
-    def is_suspending(self):
-        """Returns True if the VM is being suspended"""
-        return self.get_status() == VMPowerState.SUSPENDING
+    def get_file(self, guest_path, local_path, overwrite=False):
+        """
+        Initiates an operation to transfer a file from the guest.
+          * guest_path [string]: The complete path to the file inside the guest 
+                                that has to be transferred to the client. It 
+                                cannot be a path to a directory or a sym link.
+          * local_path [string]: The path to the local file to be created 
+        """
+        if not self._file_mgr:
+            raise VIException("Files operations not supported on this server",
+                              FaultTypes.NOT_SUPPORTED)
+        if not self._auth_obj:
+            raise VIException("You must call first login_in_guest",
+                              FaultTypes.INVALID_OPERATION)
+        if os.path.exists(local_path) and not overwrite:
+            raise VIException("Local file already exists",
+                              FaultTypes.PARAMETER_ERROR)
+        import urllib
+        from urlparse import urlparse
+        
+        try:
+            request = VI.InitiateFileTransferFromGuestRequestMsg()
+            _this = request.new__this(self._file_mgr)
+            _this.set_attribute_type(self._file_mgr.get_attribute_type())
+            request.set_element__this(_this)
+            vm = request.new_vm(self._mor)
+            vm.set_attribute_type(self._mor.get_attribute_type())
+            request.set_element_vm(vm)
+            request.set_element_auth(self._auth_obj)
+            request.set_element_guestFilePath(guest_path)
+            
+            
+            url = self._server._proxy.InitiateFileTransferFromGuest(request
+                                                                )._returnval.Url
+            
+            url = url.replace("*", urlparse(self._server._proxy.binding.url
+                                                                     ).hostname)
+            urllib.urlretrieve(url, local_path)
+            
+        except (VI.ZSI.FaultException), e:
+            raise VIApiException(e)
+    
+    def send_file(self, local_path, guest_path, overwrite=False):
+        """
+        Initiates an operation to transfer a file to the guest.
+          * local_path [string]: The path to the local file to be sent
+          * guest_path [string]: The complete destination path in the guest to 
+                                 transfer the file from the client. It cannot be
+                                 a path to a directory or a symbolic link. 
+          * overwrite [bool]: Default False, if True the destination file is
+                              clobbered. 
+        """
+        if not self._file_mgr:
+            raise VIException("Files operations not supported on this server",
+                              FaultTypes.NOT_SUPPORTED)
+        if not self._auth_obj:
+            raise VIException("You must call first login_in_guest",
+                              FaultTypes.INVALID_OPERATION)
+        import urllib2
+        from urlparse import urlparse
+        
+        if not os.path.isfile(local_path):
+            raise VIException("local_path is not a file or does not exists.",
+                              FaultTypes.PARAMETER_ERROR)
+        fd = open(local_path, "rb")
+        content = fd.read()
+        fd.close()
+        
+        try:
+            request = VI.InitiateFileTransferToGuestRequestMsg()
+            _this = request.new__this(self._file_mgr)
+            _this.set_attribute_type(self._file_mgr.get_attribute_type())
+            request.set_element__this(_this)
+            vm = request.new_vm(self._mor)
+            vm.set_attribute_type(self._mor.get_attribute_type())
+            request.set_element_vm(vm)
+            request.set_element_auth(self._auth_obj)
+            request.set_element_guestFilePath(guest_path)
+            request.set_element_overwrite(overwrite)
+            request.set_element_fileSize(len(content))
+            request.set_element_fileAttributes(request.new_fileAttributes())
+            
+            url = self._server._proxy.InitiateFileTransferToGuest(request
+                                                                )._returnval
+            
+            url = url.replace("*", urlparse(self._server._proxy.binding.url
+                                                                     ).hostname)
+            opener = urllib2.build_opener(urllib2.HTTPHandler)
+            request = urllib2.Request(url, data=content)
+            request.get_method = lambda: 'PUT'
+            resp = opener.open(request)
+            if not resp.code == 200:
+                raise VIException("File could not be send",
+                                  FaultTypes.TASK_ERROR)
+        except (VI.ZSI.FaultException), e:
+            raise VIApiException(e)
+    
+    def move_file(self, src_path, dst_path, overwrite=False):
+        """
+        Renames a file in the guest.
+          * src_path [string]: The complete path to the original file or 
+                               symbolic link to be moved.
+          * dst_path [string]: The complete path to the where the file is 
+                               renamed. It cannot be a path to an existing 
+                               directory.
+          * overwrite [bool]: Default False, if True the destination file is
+                              clobbered.  
+        """
+        if not self._file_mgr:
+            raise VIException("Files operations not supported on this server",
+                              FaultTypes.NOT_SUPPORTED)
+        if not self._auth_obj:
+            raise VIException("You must call first login_in_guest",
+                              FaultTypes.INVALID_OPERATION)
+        try:
+            request = VI.MoveFileInGuestRequestMsg()
+            _this = request.new__this(self._file_mgr)
+            _this.set_attribute_type(self._file_mgr.get_attribute_type())
+            request.set_element__this(_this)
+            vm = request.new_vm(self._mor)
+            vm.set_attribute_type(self._mor.get_attribute_type())
+            request.set_element_vm(vm)
+            request.set_element_auth(self._auth_obj)
+            request.set_element_srcFilePath(src_path)
+            request.set_element_dstFilePath(dst_path)
+            request.set_element_overwrite(overwrite)
+            self._server._proxy.MoveFileInGuest(request)
+        except (VI.ZSI.FaultException), e:
+            raise VIApiException(e)
+    
+    def delete_file(self, path):
+        """
+        Deletes a file in the guest OS
+          * path [string]: The complete path to the file to be deleted.
+        """
+        if not self._file_mgr:
+            raise VIException("Files operations not supported on this server",
+                              FaultTypes.NOT_SUPPORTED)
+        if not self._auth_obj:
+            raise VIException("You must call first login_in_guest",
+                              FaultTypes.INVALID_OPERATION)
+        try:
+            request = VI.DeleteFileInGuestRequestMsg()
+            _this = request.new__this(self._file_mgr)
+            _this.set_attribute_type(self._file_mgr.get_attribute_type())
+            request.set_element__this(_this)
+            vm = request.new_vm(self._mor)
+            vm.set_attribute_type(self._mor.get_attribute_type())
+            request.set_element_vm(vm)
+            request.set_element_auth(self._auth_obj)
+            request.set_element_filePath(path)
+            self._server._proxy.DeleteFileInGuest(request)
+        except (VI.ZSI.FaultException), e:
+            raise VIApiException(e)
 
-    def is_suspended(self):
-        """Returns True if the VM is suspended"""
-        return self.get_status() == VMPowerState.SUSPENDED
+    #---------------------------#
+    #-- GUEST PROCESS METHODS --#
+    #---------------------------#
 
-    def is_resetting(self):
-        """Returns True if the VM is being resetted"""
-        return self.get_status() == VMPowerState.RESETTING
+    def list_processes(self):
+        """
+        List the processes running in the guest operating system, plus those
+        started by start_process that have recently completed. 
+        The list contains dicctionary objects with these keys:
+            cmd_line [string]: The full command line 
+            end_time [datetime]: If the process was started using start_process
+                    then the process completion time will be available if
+                    queried within 5 minutes after it completes. None otherwise
+            exit_code [int]: If the process was started using start_process then
+                    the process exit code will be available if queried within 5
+                    minutes after it completes. None otherwise
+            name [string]: The process name
+            owner [string]: The process owner 
+            pid [long]: The process ID
+            start_time [datetime] The start time of the process 
+        """
+        if not self._proc_mgr:
+            raise VIException("Process operations not supported on this server",
+                              FaultTypes.NOT_SUPPORTED)
+        if not self._auth_obj:
+            raise VIException("You must call first login_in_guest",
+                              FaultTypes.INVALID_OPERATION)
+        try:
+            request = VI.ListProcessesInGuestRequestMsg()
+            _this = request.new__this(self._proc_mgr)
+            _this.set_attribute_type(self._proc_mgr.get_attribute_type())
+            request.set_element__this(_this)
+            vm = request.new_vm(self._mor)
+            vm.set_attribute_type(self._mor.get_attribute_type())
+            request.set_element_vm(vm)
+            request.set_element_auth(self._auth_obj)
+            pinfo = self._server._proxy.ListProcessesInGuest(request)._returnval
+            ret = []
+            for proc in pinfo:
+                ret.append({
+                            'cmd_line':proc.CmdLine,
+                            'end_time':getattr(proc, "EndTime", None),
+                            'exit_code':getattr(proc, "ExitCode", None),
+                            'name':proc.Name,
+                            'owner':proc.Owner,
+                            'pid':proc.Pid,
+                            'start_time':proc.StartTime,
+                           })
+            return ret
+        except (VI.ZSI.FaultException), e:
+            raise VIApiException(e)
 
-    def is_blocked_on_msg(self):
-        """Returns True if the VM is blocked because of a question message"""
-        return self.get_status() == VMPowerState.BLOCKED_ON_MSG
+    def get_environment_variables(self):
+        """
+        Reads an environment variable from the guest OS (system user). Returns
+        a dictionary where keys are the var names and the dict value is the var
+        value. 
+        """
+        if not self._proc_mgr:
+            raise VIException("Process operations not supported on this server",
+                              FaultTypes.NOT_SUPPORTED)
+        if not self._auth_obj:
+            raise VIException("You must call first login_in_guest",
+                              FaultTypes.INVALID_OPERATION)
+        try:
+            request = VI.ReadEnvironmentVariableInGuestRequestMsg()
+            _this = request.new__this(self._proc_mgr)
+            _this.set_attribute_type(self._proc_mgr.get_attribute_type())
+            request.set_element__this(_this)
+            vm = request.new_vm(self._mor)
+            vm.set_attribute_type(self._mor.get_attribute_type())
+            request.set_element_vm(vm)
+            request.set_element_auth(self._auth_obj)
+            vars = self._server._proxy.ReadEnvironmentVariableInGuest(request
+                                                                    )._returnval
+            return dict([v.split("=", 1) for v in vars])
+        except (VI.ZSI.FaultException), e:
+            raise VIApiException(e)
 
-    def is_reverting(self):
-        """Returns True if the VM is being reverted to a snapshot"""
-        return self.get_status() == VMPowerState.REVERTING_TO_SNAPSHOT
+    def start_process(self, program_path, args=None, env=None, cwd=None):
+        """
+        Starts a program in the guest operating system. Returns the process PID.
+            program_path [string]: The absolute path to the program to start.
+            args [list of strings]: The arguments to the program.
+            env [dictionary]: environment variables to be set for the program
+                              being run. Eg. {'foo':'bar', 'varB':'B Value'}
+            cwd [string]: The absolute path of the working directory for the 
+                          program to be run. VMware recommends explicitly 
+                          setting the working directory for the program to be 
+                          run. If this value is unset or is an empty string, 
+                          the behavior depends on the guest operating system. 
+                          For Linux guest operating systems, if this value is 
+                          unset or is an empty string, the working directory 
+                          will be the home directory of the user associated with
+                          the guest authentication. For other guest operating 
+                          systems, if this value is unset, the behavior is 
+                          unspecified. 
+        """
+        if not self._proc_mgr:
+            raise VIException("Process operations not supported on this server",
+                              FaultTypes.NOT_SUPPORTED)
+        if not self._auth_obj:
+            raise VIException("You must call first login_in_guest",
+                              FaultTypes.INVALID_OPERATION)
+        try:
+            request = VI.StartProgramInGuestRequestMsg()
+            _this = request.new__this(self._proc_mgr)
+            _this.set_attribute_type(self._proc_mgr.get_attribute_type())
+            request.set_element__this(_this)
+            vm = request.new_vm(self._mor)
+            vm.set_attribute_type(self._mor.get_attribute_type())
+            request.set_element_vm(vm)
+            request.set_element_auth(self._auth_obj)
+            spec = request.new_spec()
+            spec.set_element_programPath(program_path)
+            if env: spec.set_element_envVariables(["%s=%s" % (k,v) 
+                                                  for k,v in env.items()])
+            if cwd: spec.set_element_workingDirectory(cwd)
+            spec.set_element_arguments("")
+            if args:
+                import subprocess
+                spec.set_element_arguments(subprocess.list2cmdline(args))
+                
+            request.set_element_spec(spec)
+            
+            return self._server._proxy.StartProgramInGuest(request)._returnval
+        except (VI.ZSI.FaultException), e:
+            raise VIApiException(e)
+
+    def terminate_process(self, pid):
+        """
+        Terminates a process in the guest OS..
+            pid [long]: The process identifier
+        """
+        if not self._proc_mgr:
+            raise VIException("Process operations not supported on this server",
+                              FaultTypes.NOT_SUPPORTED)
+        if not self._auth_obj:
+            raise VIException("You must call first login_in_guest",
+                              FaultTypes.INVALID_OPERATION)
+        try:
+            request = VI.TerminateProcessInGuestRequestMsg()
+            _this = request.new__this(self._proc_mgr)
+            _this.set_attribute_type(self._proc_mgr.get_attribute_type())
+            request.set_element__this(_this)
+            vm = request.new_vm(self._mor)
+            vm.set_attribute_type(self._mor.get_attribute_type())
+            request.set_element_vm(vm)
+            request.set_element_auth(self._auth_obj)
+            request.set_element_pid(pid)
+            self._server._proxy.TerminateProcessInGuest(request)
+        except (VI.ZSI.FaultException), e:
+            raise VIApiException(e)
+
+    #-------------------#
+    #-- OTHER METHODS --#
+    #-------------------#
+    
+    def get_property(self, name='', from_cache=True):
+        """"Returns the VM property with the given @name or None if the property
+        doesn't exist or have not been set. The property is looked in the cached
+        info obtained from the last time the server was requested.
+        If you expect to get a volatile property (that might have changed since
+        the last time the properties were queried), you may set @from_cache to
+        True to refresh all the properties.
+        The properties you may get are:
+            name: Name of this entity, unique relative to its parent.
+            path: Path name to the configuration file for the virtual machine
+                  e.g., the .vmx file.
+            guest_id:
+            guest_full_name:
+            hostname:
+            ip_address:
+            mac_address
+            net: [{connected, mac_address, ip_addresses, network},...]
+        """
+        if not from_cache:
+            self.__update_properties()
+        return self._properties.get(name)
+
+    def get_properties(self, from_cache=True):
+        """Returns a dictionary of property of this VM.
+        If you expect to get a volatile property (that might have changed since
+        the last time the properties were queried), you may set @from_cache to
+        True to refresh all the properties before retrieve them."""
+        if not from_cache:
+            self.__update_properties()
+        return self._properties.copy()
+
 
     def get_resource_pool_name(self):
         """Returns the name of the resource pool where this VM belongs to. Or
@@ -655,15 +1179,9 @@ class VIVirtualMachine:
                 if prop.Name == 'name':
                     return prop.Val
 
-    def get_current_snapshot_name(self):
-        """Returns the name of the current snapshot (if any)."""
-        self.__update_properties()
-        if not self.__current_snapshot:
-            return None
-        for snap in self._snapshot_list:
-            if str(self.__current_snapshot) == str(snap._mor):
-                return snap._name
-        return None
+    #---------------------#
+    #-- PRIVATE METHODS --#
+    #---------------------#
 
     def __create_snapshot_list(self):
         """Creates a VISnapshot list with the snapshots this VM has. Stores that
@@ -758,6 +1276,23 @@ class VIVirtualMachine:
         except (VI.ZSI.FaultException), e:
             raise VIApiException(e)
 
+    def __validate_authentication(self, auth_obj):
+        if not self._auth_mgr:
+            raise VIException("Guest Operations only available since API 5.0",
+                              FaultTypes.NOT_SUPPORTED)
+        try:
+            request = VI.ValidateCredentialsInGuestRequestMsg()
+            _this = request.new__this(self._auth_mgr)
+            _this.set_attribute_type(self._auth_mgr.get_attribute_type())
+            request.set_element__this(_this)
+            vm = request.new_vm(self._mor)
+            vm.set_attribute_type(self._mor.get_attribute_type())
+            request.set_element_vm(vm)
+            request.set_element_auth(auth_obj)
+            self._server._proxy.ValidateCredentialsInGuest(request)
+        except (VI.ZSI.FaultException), e:
+            raise VIApiException(e)
+    
     def __update_properties(self):
         """Refreshes the properties retrieved from the virtual machine
         (i.e. name, path, snapshot tree, etc). To reduce traffic, all the
