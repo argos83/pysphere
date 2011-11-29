@@ -41,6 +41,7 @@ class VIServer:
         self.__logged = False
         self.__datacenters = None
         self.__clusters = None
+        self.__hosts =  None
         self.__resource_pools = None
         self.__server_type = None
         self.__api_version = None
@@ -462,10 +463,11 @@ class VIServer:
             raise VIApiException(e)
         return ret
 
-    def _get_datacenters(self):
+    def _get_datacenters(self, from_cache=True):
         """Returns a dictionary of the existing datacenters keys are their names
         and values their ManagedObjectReference object."""
-        if self.__datacenters is not None and len(self.__datacenters) != 0:
+        if (self.__datacenters is not None and len(self.__datacenters) != 0 
+                                                                and from_cache):
             return self.__datacenters
         self.__datacenters = {}
         do_object_content = self._retrieve_properties_traversal(
@@ -480,10 +482,30 @@ class VIServer:
 
         return self.__datacenters
 
-    def _get_clusters(self):
+    def _get_hosts(self, from_cache=True):
+        """Returns a dictionary of the existing hosts keys are their names
+        and values their ManagedObjectReference object."""
+        if self.__hosts is not None and len(self.__hosts) != 0 and from_cache:
+            return self.__hosts
+        self.__hosts = {}
+        do_object_content = self._retrieve_properties_traversal(
+                                 property_names=['name'], obj_type='HostSystem')
+        try:
+            for oc in do_object_content:
+                mor = oc.Obj
+                properties = oc.PropSet
+                self.__hosts[properties[0].Val] = mor
+        except (VI.ZSI.FaultException), e:
+            raise VIApiException(e)
+
+        return self.__hosts
+        
+
+    def _get_clusters(self, from_cache=True):
         """Returns a dictionary of the existing clusters keys are their names
         and values their ManagedObjectReference object."""
-        if self.__clusters is not None and len(self.__clusters) != 0:
+        if (self.__clusters is not None and len(self.__clusters) != 0 
+                                                                and from_cache):
             return self.__clusters
         self.__clusters = {}
         do_object_content = self._retrieve_properties_traversal(
