@@ -267,8 +267,14 @@ class VIServer:
                                             property_names=property_filter,
                                             from_node=node,
                                             obj_type='VirtualMachine')
+            if not do_object_content:
+                return ret
+            
             for oc in do_object_content:
-                prop_set = oc.PropSet
+                try:
+                    prop_set = oc.PropSet
+                except AttributeError:
+                    continue
                 if prop_set is not None and len(prop_set)>0:
                     if status:
                         if prop_set[1].Val == status:
@@ -694,6 +700,8 @@ class VIServer:
         def call_retrieve_properties_ex(request):
             retval = self._proxy.RetrievePropertiesEx(
                                                  request)._returnval
+            if not retval:
+                return None
             ret = retval.Objects
             while hasattr(retval, "Token"):
                 token = retval.Token
