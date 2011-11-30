@@ -143,9 +143,11 @@ class VIServer:
         """Returns a Performance Manager entity"""
         return PerformanceManager(self, self._do_service_content.PerfManager)
 
-    def get_hosts(self):
-        """Returns a dictionary with the existing hosts as keys and their
-         ManagedObjectReference object as value."""
+    def get_hosts(self, from_cache=True):
+        """Returns a dictionary of the existing hosts keys are their names
+        and values their ManagedObjectReference object."""
+        if self.__hosts is not None and len(self.__hosts) != 0 and from_cache:
+            return self.__hosts
         self.__hosts = {}
         do_object_content = self._retrieve_properties_traversal(
                                  property_names=['name'], obj_type='HostSystem')
@@ -481,24 +483,6 @@ class VIServer:
             raise VIApiException(e)
 
         return self.__datacenters
-
-    def _get_hosts(self, from_cache=True):
-        """Returns a dictionary of the existing hosts keys are their names
-        and values their ManagedObjectReference object."""
-        if self.__hosts is not None and len(self.__hosts) != 0 and from_cache:
-            return self.__hosts
-        self.__hosts = {}
-        do_object_content = self._retrieve_properties_traversal(
-                                 property_names=['name'], obj_type='HostSystem')
-        try:
-            for oc in do_object_content:
-                mor = oc.Obj
-                properties = oc.PropSet
-                self.__hosts[properties[0].Val] = mor
-        except (VI.ZSI.FaultException), e:
-            raise VIApiException(e)
-
-        return self.__hosts
         
 
     def _get_clusters(self, from_cache=True):
