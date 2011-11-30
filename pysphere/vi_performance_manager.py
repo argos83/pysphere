@@ -31,9 +31,10 @@ from resources import VimService_services as VI
 from resources.vi_exception import VIException, VIApiException, FaultTypes
 import datetime
 
-class HostStatistics:
-    def __init__(self,host_name,counter_name,counter_desc,instance_name,value,time_stamp):
-        self.host = host_name
+class EntityStatistics:
+    def __init__(self, mor, counter_name, counter_desc, instance_name,
+                 value,time_stamp):
+        self.mor = mor
         self.counter = counter_name
         self.description = counter_desc
         self.instance = instance_name
@@ -41,13 +42,13 @@ class HostStatistics:
         self.time = time_stamp
 
     def __str__(self):
-        return "Host: %s\nCounter: %s\nDescription: %s\nInstance: %s\nValue: %s\nTime: %s" \
-         % (self.host, self.counter, self.description, \
-        self.instance, self.value, self.time)
+        return "MOR: %s\nCounter: %s\nDescription: %s\nInstance: %s\nValue: " \
+               "%s\nTime: %s" % (self.mor, self.counter, self.description,
+                                self.instance, self.value, self.time)
 
     def __repr__(self):
-        return"<%(host)s:%(counter)s:%(description)s:%(instance)s:% \
-                (value)s:%(time)s>" % self.__dict__
+        return"<%(mor)s:%(counter)s:%(description)s" \
+              ":%(instance)s:%(value)s:%(time)s>" % self.__dict__
 
 class PerformanceManager:
 
@@ -77,48 +78,62 @@ class PerformanceManager:
                 return counter.NameInfo.Label
         return False
 
-    def _get_metric_id(self, metrics, counter_obj, counter_name):
+    def _get_metric_id(self, metrics, counter_obj, counter_ids):
         """ Get the metric ID from a metric name.
         metrics [list]: An array of performance metrics with a
             performance counter ID and an instance name.
         counter_obj [list]: An array consisting of performance
             counter information for the specified counterIds.
-        counter_name [string]: The wanted counter name.
+        counter_name [list of strings]: The wanted counter name.
         """
-
+        if not isinstance(counter_ids, list):
+            counter_name = [counter_name]
         metric_list = []
-        for counter in counter_name:
-            for counter1 in counter_obj:
-                if counter1.NameInfo.Key == counter:
-                    for metric in metrics:
-                        if metric.CounterId == counter1.Key:
-                            if metric not in metric_list:
-                                metric_list.append(metric)
+        for metric in metrics:
+            if metric.CounterId in counter_ids:
+                if metric not in metric_list:
+                    metric_list.append(metric)
         return metric_list
 
-    def get_host_statistic(self, host, counter_name):
-        """ Get the give statistics from a given host
-        host [mor]: ManagedObject Reference of the host from were
-            statistics are to be retrieved.
-        counter_name [string]: Name of the counter to retrieve stats for.
-        """
+    def get_entity_counters(self, entity):
+        """Returns a dictionary of available counters. The dictionary key
+        is the counter name, and value is the corresponding counter id"""
+        refresh_rate = self.query_perf_provider_summary(entity).RefreshRate
+        metrics = self.query_available_perf_metric(entity,
+                                                   interval_id=refresh_rate)
+        counter_obj = self.query_perf_counter([metric.CounterId 
+                                               for metric in metrics])
+        return dict([(c.NameInfo.Key, c.Key) for c in counter_obj]) 
+        
 
-        refresh_rate = self.query_perf_provider_summary(host).RefreshRate
-        metrics = self.query_available_perf_metric(host, interval_id=refresh_rate)
-        counter_obj = self.query_perf_counter([metric.CounterId for metric in metrics])
-        metric = self._get_metric_id(metrics, counter_obj, counter_name)
-        query = self.query_perf(host, metric_id=metric, max_sample=1,
+    def get_entity_statistic(self, entity, counter_ids):
+        """ Get the give statistics from a given managed object
+        entity [mor]: ManagedObject Reference of the managed object from were
+            statistics are to be retrieved.
+        counter_name [list of strings]: Counter names to retrieve stats for.
+        """
+        if not isinstance(counter_ids, list):
+            counter_ids = [counter_ids]
+        refresh_rate = self.query_perf_provider_summary(entity).RefreshRate
+        metrics = self.query_available_perf_metric(entity,
+                                                   interval_id=refresh_rate)
+        counter_obj = self.query_perf_counter(counter_ids)
+        metric = self._get_metric_id(metrics, counter_obj, counter_ids)
+        if not metric:
+            return []
+        query = self.query_perf(entity, metric_id=metric, max_sample=1,
                                 interval_id=refresh_rate)
 
         statistics = []
         for stat in query[0].Value:
-            counter_name = self._get_counter_name(stat.Id.CounterId, counter_obj)
-            counter_desc = self._get_counter_desc(stat.Id.CounterId, counter_obj)
+            counter_name = self._get_counter_name(stat.Id.CounterId,counter_obj)
+            counter_desc = self._get_counter_desc(stat.Id.CounterId,counter_obj)
             instance_name = str(stat.Id.Instance)
             stat_value = str(stat.Value[0])
             date_now = datetime.datetime.utcnow()
-            statistics.append(HostStatistics(host,counter_name,counter_desc,instance_name,
-                                             stat_value,date_now))
+            statistics.append(EntityStatistics(entity,counter_name,counter_desc,
+                                               instance_name, stat_value,
+                                               date_now))
         return statistics
 
     def query_available_perf_metric(self, entity, begin_time=None,
@@ -180,16 +195,16 @@ class PerformanceManager:
             raise VIApiException(e)
 
     def query_perf_provider_summary(self, entity):
-        """Returns a ProviderSummary object for a ManagedObject for which performance
-        statistics can be queried. Also indicates whether current or summary statistics
-        are supported. If the input managed entity is not a performance provider, an
-        InvalidArgument exception is thrown.
+        """Returns a ProviderSummary object for a ManagedObject for which 
+        performance statistics can be queried. Also indicates whether current or
+        summary statistics are supported. If the input managed entity is not a 
+        performance provider, an InvalidArgument exception is thrown.
         entity [mor]: The ManagedObject for which available performance metrics
-            are queried.
+        are queried.
         """
 
         if not entity:
-            raise VIException("No Entity specified.", FaultTypes.PARAMETER_ERROR)
+            raise VIException("No Entity specified.",FaultTypes.PARAMETER_ERROR)
 
         try:
             request = VI.QueryPerfProviderSummaryRequestMsg()
@@ -201,7 +216,8 @@ class PerformanceManager:
             qpps_entity.set_attribute_type(entity.get_attribute_type())
             request.set_element_entity(qpps_entity)
 
-            qpps = self._server._proxy.QueryPerfProviderSummary(request)._returnval
+            qpps = self._server._proxy.QueryPerfProviderSummary(
+                                                             request)._returnval
             return qpps
 
         except (VI.ZSI.FaultException), e:
@@ -217,7 +233,8 @@ class PerformanceManager:
                 raise VIException("counter_id must be a list",
                                   FaultTypes.PARAMETER_ERROR)
         else:
-            raise VIException("No counter_id specified.", FaultTypes.PARAMETER_ERROR)
+            raise VIException("No counter_id specified.",
+                              FaultTypes.PARAMETER_ERROR)
 
         try:
             request = VI.QueryPerfCounterRequestMsg()
@@ -233,8 +250,8 @@ class PerformanceManager:
         except (VI.ZSI.FaultException), e:
             raise VIApiException(e)
 
-    def query_perf(self, entity, format='normal', interval_id=None, max_sample=None,
-                                             metric_id=None, start_time=None):
+    def query_perf(self, entity, format='normal', interval_id=None, 
+                   max_sample=None, metric_id=None, start_time=None):
         """Returns performance statistics for the entity. The client can limit
         the returned information by specifying a list of metrics and a suggested
         sample interval ID. Server accepts either the refreshRate or one of the
@@ -244,15 +261,17 @@ class PerformanceManager:
         format [string]: The format to be used while returning the statistics.
         interval_id [int]: The interval (samplingPeriod) in seconds for which
             performance statistics are queried. There is a set of intervals for
-            historical statistics. Refer HistoricalInterval for more more information
-            about these intervals. To retrieve the greatest available level of detail,
-            the provider's refreshRate may be used for this property.
-        max_sample [int]: The maximum number of samples to be returned from server.
-            The number of samples returned are more recent samples in the time range
-            specified. For example, if the user specifies a maxSample of 1, but not
-            a given time range, the most recent sample collected is returned. This
-            parameter can be used only when querying for real-time statistics by
-            setting the intervalId parameter to the provider's refreshRate.
+            historical statistics. Refer HistoricalInterval for more more 
+            information about these intervals. To retrieve the greatest 
+            available level of detail, the provider's refreshRate may be used 
+            for this property.
+        max_sample [int]: The maximum number of samples to be returned from 
+            server. The number of samples returned are more recent samples in 
+            the time range specified. For example, if the user specifies a 
+            maxSample of 1, but not a given time range, the most recent sample 
+            collected is returned. This parameter can be used only when querying
+            for real-time statistics by setting the intervalId parameter to the
+            provider's refreshRate.
             This argument is ignored for historical statistics.
         metric_id: [PerfMetricId]: The performance metrics to be retrieved.
         start_time [dateTime]: The time from which statistics are to be
