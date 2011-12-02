@@ -9,8 +9,10 @@ from pysphere.ZSI.wstools.Namespaces import SCHEMA
 import operator, re, time as _time
 from time import mktime as _mktime, localtime as _localtime, gmtime as _gmtime
 from datetime import tzinfo as _tzinfo, timedelta as _timedelta,\
-    datetime as _datetime, MINYEAR, MAXYEAR
+    datetime as _datetime, MAXYEAR
 from math import modf as _modf
+
+MINYEAR = 1970
 
 # Year, month or day may be None
 _niltime = [None] * 3 + [0] * 6
