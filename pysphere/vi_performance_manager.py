@@ -106,19 +106,33 @@ class PerformanceManager:
         return dict([(c.NameInfo.Key, c.Key) for c in counter_obj]) 
         
 
-    def get_entity_statistic(self, entity, counter_ids):
+    def get_entity_statistic(self, entity, counters):
         """ Get the give statistics from a given managed object
         entity [mor]: ManagedObject Reference of the managed object from were
             statistics are to be retrieved.
-        counter_name [list of strings]: Counter names to retrieve stats for.
+        counter_id [list of integers or strings]: Counter names or ids 
+                                                 to retrieve stats for.
         """
-        if not isinstance(counter_ids, list):
-            counter_ids = [counter_ids]
+        if not isinstance(counters, list):
+            counters = [counters]
+            
+        if any([isinstance(i, basestring) for i in counters]):
+            avail_counters = self.get_entity_counters(entity)
+            new_list = []
+            for c in counters:
+                if isinstance(c, int):
+                    new_list.append(c)
+                else:
+                    counter_id = avail_counters.get(c)
+                    if counter_id:
+                        new_list.append(counter_id)
+            counters = new_list
+                    
         refresh_rate = self.query_perf_provider_summary(entity).RefreshRate
         metrics = self.query_available_perf_metric(entity,
                                                    interval_id=refresh_rate)
-        counter_obj = self.query_perf_counter(counter_ids)
-        metric = self._get_metric_id(metrics, counter_obj, counter_ids)
+        counter_obj = self.query_perf_counter(counters)
+        metric = self._get_metric_id(metrics, counter_obj, counters)
         if not metric:
             return []
         query = self.query_perf(entity, metric_id=metric, max_sample=1,
