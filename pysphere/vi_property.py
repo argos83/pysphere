@@ -69,9 +69,6 @@ class VIProperty(object):
             return ret
          
         else:
-            print "DEBUG MESSAGE: UNEXPECTED PROPERTY TYPE!"
-            print "TYPE:", type(prop)
-            print "DIR:", dir(prop)
             return prop
                 
         

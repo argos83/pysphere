@@ -1,0 +1,12 @@
+
+New in 0.1.5:
+
+- suppor vSphere 5.0
+- added suspend method to VM
+- added quick vm properties for disks and files info
+- implemented VIProperty to access vm objects properties as defined in vSphere API reference
+- Fixed error in get registered vms triggered on empty hosts or with faulty vms
+- Fixed '..' in import statements for compatibility with python 2.4
+- Added VM guest operations: create/delete/rename files and directories, upload/download files, start/stop/list processes
+- FIxed bugs in performance manager
+- FIxes issue in ZSI triggered when parsing dates prior to year 1970
