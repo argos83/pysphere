@@ -14,6 +14,9 @@ Visit the project_ site for more information.
 - Query hosts, datacenters, resource pools, virtual machines
 - VMs: Power on, power off, reset, revert to snapshot, get properties, update 
   vmware tools
+- vSphere 5.0 Guest Operations: create/delete/move files and directories.
+  upload/download files from the guest system. List/start/stop processes in 
+  the guest system.
 - Create and delete snapshots
 - Get hosts statistics and monitor performance
 
@@ -31,6 +34,7 @@ The simplest way is using easy_install:
 ::
 
   easy_install pysphere
+
 
 Or you can find the source package and windows installer in the downloads_ 
 section. To install it from the source package:

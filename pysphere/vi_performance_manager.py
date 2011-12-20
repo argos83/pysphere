@@ -32,11 +32,15 @@ from resources.vi_exception import VIException, VIApiException, FaultTypes
 import datetime
 
 class EntityStatistics:
-    def __init__(self, mor, counter_name, counter_desc, instance_name,
-                 value,time_stamp):
+    def __init__(self, mor, counter_name, counter_desc, group_name, group_desc,
+                 unit_name, unit_desc, instance_name, value,time_stamp):
         self.mor = mor
         self.counter = counter_name
         self.description = counter_desc
+        self.group = group_name
+        self.group_description = group_desc
+        self.unit = unit_name
+        self.unit_description = unit_desc
         self.instance = instance_name
         self.value = value
         self.time = time_stamp
@@ -48,7 +52,7 @@ class EntityStatistics:
 
     def __repr__(self):
         return"<%(mor)s:%(counter)s:%(description)s" \
-              ":%(instance)s:%(value)s:%(time)s>" % self.__dict__
+              ":%(instance)s:%(value)s:%(unit)s:%(time)s>" % self.__dict__
 
 class PerformanceManager:
 
@@ -56,27 +60,16 @@ class PerformanceManager:
         self._server = server
         self._mor = mor
 
-    def _get_counter_name(self, counter_id, counter_obj):
-        """Return the name of a give counter_id.
+    def _get_counter_info(self, counter_id, counter_obj):
+        """Return name, description, group, and unit info of a give counter_id.
         counter_id [int]: id of the counter.
         counter_obj [list]: An array consisting of performance
             counter information for the specified counterIds."""
-
-        for counter in counter_obj:
-            if counter.Key == counter_id:
-                return counter.NameInfo.Key
-        return False
-
-    def _get_counter_desc(self, counter_id, counter_obj):
-        """Return the description of a give counter_id.
-        counter_id [int]: id of the counter.
-        counter_obj [list]: An array consisting of performance
-            counter information for the specified counterIds."""
-
-        for counter in counter_obj:
-            if counter.Key == counter_id:
-                return counter.NameInfo.Label
-        return False
+        for c in counter_obj:
+            if c.Key == counter_id:
+                return (c.NameInfo.Key, c.NameInfo.Label, c.GroupInfo.Key, 
+                        c.GroupInfo.Label, c.UnitInfo.Key, c.UnitInfo.Label)
+        return None, None, None, None, None, None
 
     def _get_metric_id(self, metrics, counter_obj, counter_ids):
         """ Get the metric ID from a metric name.
@@ -139,13 +132,17 @@ class PerformanceManager:
                                 interval_id=refresh_rate)
 
         statistics = []
+        if not query:
+            return statistics
         for stat in query[0].Value:
-            counter_name = self._get_counter_name(stat.Id.CounterId,counter_obj)
-            counter_desc = self._get_counter_desc(stat.Id.CounterId,counter_obj)
+            cname, cdesc, gname, gdesc, uname, udesc = self._get_counter_info(
+                                                  stat.Id.CounterId,counter_obj)
+
             instance_name = str(stat.Id.Instance)
             stat_value = str(stat.Value[0])
             date_now = datetime.datetime.utcnow()
-            statistics.append(EntityStatistics(entity,counter_name,counter_desc,
+            statistics.append(EntityStatistics(entity,cname, cdesc, gname,
+                                               gdesc, uname, udesc,                                           
                                                instance_name, stat_value,
                                                date_now))
         return statistics

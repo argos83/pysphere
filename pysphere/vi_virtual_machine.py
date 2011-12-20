@@ -1027,7 +1027,7 @@ class VIVirtualMachine:
 
     def get_environment_variables(self):
         """
-        Reads an environment variable from the guest OS (system user). Returns
+        Reads the environment variables from the guest OS (system user). Returns
         a dictionary where keys are the var names and the dict value is the var
         value. 
         """
