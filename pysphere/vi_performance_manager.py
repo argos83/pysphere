@@ -46,9 +46,11 @@ class EntityStatistics:
         self.time = time_stamp
 
     def __str__(self):
-        return "MOR: %s\nCounter: %s\nDescription: %s\nInstance: %s\nValue: " \
-               "%s\nTime: %s" % (self.mor, self.counter, self.description,
-                                self.instance, self.value, self.time)
+        return "MOR: %s\nCounter: %s\nGroup: %s\nDescription: %s\nInstance: %s\nValue: " \
+               "%s\nUnit: %s\nTime: %s" % (self.mor, self.counter, 
+                                    self.group_description, self.description,
+                                    self.instance, self.value,
+                                    self.unit_description, self.time)
 
     def __repr__(self):
         return"<%(mor)s:%(counter)s:%(description)s" \
