@@ -347,6 +347,72 @@ class VIVirtualMachine:
         except (VI.ZSI.FaultException), e:
             raise VIApiException(e)
 
+    #--------------#
+    #-- CLONE VM --#
+    #--------------#
+    def clone(self, name, sync_run=True, folder=None, power_on=True):
+        """Clones this Virtual Machine
+        @name: name of the new virtual machine
+        @folder: name of the folder that will contain the new VM, if not set
+                 the vm will be added to the folder the original VM belongs to
+        @power_on: If the new VM will be powered on after being created
+        @sync_run: if True (default) waits for the task to finish, and returns
+        a VIVirtualMachine instance with the new VM (raises an exception if the
+        task didn't succeed). If sync_run is set to False the task is started an
+        a VITask instance is returned
+        """
+        try:
+            #get the folder to create the VM
+            folders = self._server._retrieve_properties_traversal(
+                                         property_names=['name', 'childEntity'],
+                                         obj_type="Folder")
+            folder_mor = None
+            for f in folders:
+                fname = ""
+                children = []
+                for prop in f.PropSet:
+                    if prop.Name == "name":
+                        fname = prop.Val
+                    elif prop.Name == "childEntity":
+                        children = prop.Val.ManagedObjectReference
+                if folder == fname or (not folder and self._mor in children):
+                    folder_mor = f.Obj
+                    break
+            if not folder_mor and folder:
+                raise VIException("Couldn't find folder %s" % folder,
+                                  FaultTypes.FOLDER_NOT_FOUND)
+            elif not folder_mor:
+                raise VIException("Error locating current VM folder",
+                                  FaultTypes.FOLDER_NOT_FOUND)
+    
+            request = VI.CloneVM_TaskRequestMsg()
+            _this = request.new__this(self._mor)
+            _this.set_attribute_type(self._mor.get_attribute_type())
+            request.set_element__this(_this)
+            request.set_element_folder(folder_mor)
+            request.set_element_name(name)
+            spec = request.new_spec()
+            spec.set_element_powerOn(power_on)
+            location = spec.new_location()
+            spec.set_element_location(location)
+            spec.set_element_template(False)
+            request.set_element_spec(spec)
+            task = self._server._proxy.CloneVM_Task(request)._returnval
+            vi_task = VITask(task, self._server)
+            if sync_run:
+                status = vi_task.wait_for_state([vi_task.STATE_SUCCESS,
+                                                 vi_task.STATE_ERROR])
+                if status == vi_task.STATE_ERROR:
+                    raise VIException(vi_task.get_error_message(),
+                                      FaultTypes.TASK_ERROR)
+                return VIVirtualMachine(self._server, vi_task.get_result()) 
+                
+            return vi_task
+
+        except (VI.ZSI.FaultException), e:
+            raise VIApiException(e)
+            
+
     #----------------------#
     #-- SNAPSHOT METHODS --#
     #----------------------#

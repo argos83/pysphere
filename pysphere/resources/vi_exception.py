@@ -51,6 +51,7 @@ class VIApiException(VIException):
 class FaultTypes:
     PARAMETER_ERROR    = 'Parameter Error'
     VM_NOT_FOUND_ERROR = 'VM Not Found'
+    FOLDER_NOT_FOUND   = 'Folder Not Found'
     NOT_CONNECTED      = 'Not Connected'
     TIME_OUT           = 'Operation Timed Out'
     SNAPSHOT_NOT_FOUND = 'Snapshot Not Found'

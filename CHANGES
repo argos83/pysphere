@@ -10,3 +10,8 @@ New in 0.1.5:
 - Added VM guest operations: create/delete/rename files and directories, upload/download files, start/stop/list processes
 - FIxed bugs in performance manager
 - FIxes issue in ZSI triggered when parsing dates prior to year 1970
+
+New in 0.1.6
+
+- Added methods to VITask: get_result, get_progress, cancel
+- Added clone method to VIVirtualMachine
