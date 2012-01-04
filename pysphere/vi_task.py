@@ -1,5 +1,5 @@
 #--
-# Copyright (c) 2011, Sebastian Tello
+# Copyright (c) 2012, Sebastian Tello
 # All rights reserved.
 
 # Redistribution and use in source and binary forms, with or without
@@ -29,7 +29,8 @@
 
 import time
 
-from resources.vi_exception import *
+from resources.vi_exception import VIException, FaultTypes, VIApiException
+from resources import VimService_services as VI
 
 class VITask:
 
@@ -44,11 +45,18 @@ class VITask:
         self._task_info = None
 
     def get_state(self):
+        """Returns the current state of the task"""
+        
         self.__poll_task_info()
         if self._task_info:
             return self._task_info.State
 
     def wait_for_state(self, states, check_interval=2, timeout=-1):
+        """Waits for the task to be in any of the given states
+        checking the status every @check_interval seconds.
+        Raises an exception if @timeout is reached
+        If @timeout is 0 or negative, waits indefinitely"""
+        
         if type(states).__name__ != 'list':
             states = [str(states)]
         start_time = time.clock()
@@ -59,18 +67,48 @@ class VITask:
 
             if timeout > 0:
                 if (time.clock() - start_time) > timeout:
-                    raise VIException("Timed out waiting for task state.", FaultTypes.TIME_OUT)
+                    raise VIException("Timed out waiting for task state.", 
+                                      FaultTypes.TIME_OUT)
 
             time.sleep(check_interval)
 
     def get_error_message(self):
+        """If the task finished with error, returns the related message"""
+        
         if self._task_info and self._task_info.Error.LocalizedMessage:
             return self._task_info.Error.LocalizedMessage
 
+    def get_result(self):
+        "Returns the task result (if any) if it has successfully finished"
+        
+        if self._task_info and hasattr(self._task_info, "Result"):
+            return self._task_info.Result
+
+    def get_progress(self):
+        """Returns a progress from 0 to 100 if the task is running and has
+        available progress info, returns None otherwise"""
+        self.__poll_task_info()
+        if self._task_info and hasattr(self._task_info, "Progress"):
+            return self._task_info.Progress
+
+    def cancel(self):
+        """Attempts to cancel this task"""
+        try:
+            request = VI.CancelTaskRequestMsg()
+            _this = request.new__this(self._mor)
+            _this.set_attribute_type(self._mor.get_attribute_type())
+            request.set_element__this(_this)
+            
+            self._server._proxy.CancelTask(request)
+            
+        except (VI.ZSI.FaultException), e:
+            raise VIApiException(e)
+        
     def __poll_task_info(self, retries=3, interval=2):
         for i in range(retries):
             try:
-                do_object_content = self._server._get_object_properties(self._mor, get_all=True)
+                do_object_content = self._server._get_object_properties(
+                                                        self._mor, get_all=True)
                 if do_object_content is None:
                     raise Exception("do_object_content is None")
 
