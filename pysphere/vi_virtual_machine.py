@@ -35,7 +35,6 @@ from resources.vi_exception import VIException, VIApiException, FaultTypes
 from vi_task import VITask
 from vi_snapshot import VISnapshot
 from vi_property import VIProperty
-from macpath import isfile
 
 class VIVirtualMachine:
 
@@ -261,6 +260,58 @@ class VIVirtualMachine:
                         return VMPowerState.POWERING_ON
                 return vi_power_states.get(power_state, VMPowerState.UNKNOWN)
 
+    def get_question(self):
+        """Returns a VMQuestion object with information about a question in this
+        vm pending to be answered. None if the vm has no pending questions.
+        """
+    
+        class VMQuestion(object):
+            def __init__(self, vm, qprop):
+                self._answered = False
+                self._vm = vm
+                self._qid = qprop.id
+                self._text = qprop.text
+                self._choices = [(ci.key, ci.label) 
+                                 for ci in qprop.choice.choiceInfo]
+                self._default = getattr(qprop.choice, 'defaultIndex', None)
+                
+            def text(self):
+                return self._text
+            def choices(self):
+                return self._choices[:]
+            def default_choice(self):
+                return self._choices[self._default]
+            def answer(self, choice=None):
+                if self._answered:
+                    raise VIException("Question already answered", 
+                                      FaultTypes.INVALID_OPERATION)
+                if choice is None and self._default is None:
+                    raise VIException("No default choice available",
+                                      FaultTypes.PARAMETER_ERROR)
+                elif choice is not None and choice not in [i[0] for i 
+                                                              in self._choices]:
+                    raise VIException("Invalid choice id",
+                                      FaultTypes.PARAMETER_ERROR)
+                elif choice is None:
+                    choice = self.default_choice()[0]
+                try:
+                    request = VI.AnswerVMRequestMsg()
+                    _this = request.new__this(self._vm._mor)
+                    _this.set_attribute_type(self._vm._mor.get_attribute_type())
+                    request.set_element__this(_this)
+                    request.set_element_questionId(self._qid)
+                    request.set_element_answerChoice(choice)
+                    self._vm._server._proxy.AnswerVM(request)
+                    self._answered = True
+                except (VI.ZSI.FaultException), e:
+                    raise VIApiException(e)            
+
+        self.__update_properties()
+        if not hasattr(self.properties.runtime, "question"):
+            return
+        return VMQuestion(self, self.properties.runtime.question)
+     
+     
     def is_powering_off(self):
         """Returns True if the VM is being powered off"""
         return self.get_status() == VMPowerState.POWERING_OFF

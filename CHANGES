@@ -15,3 +15,4 @@ New in 0.1.6
 
 - Added methods to VITask: get_result, get_progress, cancel
 - Added clone method to VIVirtualMachine
+- Added get_question method to VM (returns object with question info and answer method)
