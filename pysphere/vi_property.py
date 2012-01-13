@@ -83,14 +83,14 @@ class VIProperty(object):
 
 
 #PYTHON 2.5 inspect.getmembers does not catches AttributeError, this will do
-def getmembers(object, predicate=None):
+def getmembers(obj, predicate=None):
     """Return all members of an object as (name, value) pairs sorted by name.
     Optionally, only return members that satisfy a given predicate."""
     results = []
-    for key in dir(object):
+    for key in dir(obj):
 
         try:
-            value = getattr(object, key)
+            value = getattr(obj, key)
         except AttributeError:
             continue
         if not predicate or predicate(value):

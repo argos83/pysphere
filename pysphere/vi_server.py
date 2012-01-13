@@ -186,9 +186,13 @@ class VIServer:
                 mor_datacenter.set_attribute_type('Datacenter')
                 request.set_element_datacenter(mor_datacenter)
                 request.set_element_path(path)
-                vm = self._proxy.FindByDatastorePath(request)._returnval
-                if vm is not None:
-                    return VIVirtualMachine(self, vm)
+                try:
+                    vm = self._proxy.FindByDatastorePath(request)._returnval
+                except VI.ZSI.FaultException:
+                    pass
+                else:
+                    if vm:
+                        return VIVirtualMachine(self, vm)
         except (VI.ZSI.FaultException), e:
             raise VIApiException(e)
 
