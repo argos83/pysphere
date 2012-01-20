@@ -401,11 +401,16 @@ class VIVirtualMachine:
     #--------------#
     #-- CLONE VM --#
     #--------------#
-    def clone(self, name, sync_run=True, folder=None, power_on=True):
+    def clone(self, name, sync_run=True, folder=None, resourcepool=None,
+              power_on=True):
         """Clones this Virtual Machine
         @name: name of the new virtual machine
         @folder: name of the folder that will contain the new VM, if not set
                  the vm will be added to the folder the original VM belongs to
+        @resourcepool: name path or MOR of the resourcepool to be used for
+                 the new vm. If not set, it uses the same resourcepool than the
+                 original vm. (RP name path can be obtained from a VIServer's
+                 _get_resource_pools method)
         @power_on: If the new VM will be powered on after being created
         @sync_run: if True (default) waits for the task to finish, and returns
         a VIVirtualMachine instance with the new VM (raises an exception if the
@@ -445,6 +450,17 @@ class VIVirtualMachine:
             spec = request.new_spec()
             spec.set_element_powerOn(power_on)
             location = spec.new_location()
+            #If the provided resourcepool is a name path, get its MOR
+            if resourcepool and not hasattr(resourcepool, "get_attribute_type"):
+                rps = self._server._get_resource_pools(from_cache=False)
+                resourcepool = rps.get(resourcepool)
+                if not resourcepool:
+                    raise VIException("Invalid resourcepool name path or MOR", 
+                                      FaultTypes.PARAMETER_ERROR)
+            if resourcepool:
+                pool = location.new_pool(resourcepool)
+                pool.set_attribute_type(resourcepool.get_attribute_type())
+                location.set_element_pool(pool)
             spec.set_element_location(location)
             spec.set_element_template(False)
             request.set_element_spec(spec)

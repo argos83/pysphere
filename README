@@ -29,14 +29,23 @@ provide code generation.
 Installation
 ------------
 
-The simplest way is using easy_install:
+The simplest way is using setuptools_' easy_install:
+
+.. _setuptools: http://pypi.python.org/pypi/setuptools
 
 ::
 
-  easy_install pysphere
+  easy_install -U pysphere
 
+Or using the pip_:
 
-Or you can find the source package and windows installer in the downloads_ 
+.. _pip: http://pypi.python.org/pypi/pip
+
+::
+
+  pip install -U pysphere
+
+You can aslo find the source package and windows installer in the downloads_ 
 section. To install it from the source package:
 
 .. _downloads: http://code.google.com/p/pysphere/downloads/list

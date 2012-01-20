@@ -27,8 +27,6 @@
 #
 #--
 
-import sys
-import os
 from resources import VimService_services as VI
 
 from resources.vi_exception import *
@@ -467,7 +465,6 @@ class VIServer:
 
         except (VI.ZSI.FaultException), e:
             raise VIApiException(e)
-        return ret
 
     def _get_datacenters(self, from_cache=True):
         """Returns a dictionary of the existing datacenters keys are their names
