@@ -1558,6 +1558,7 @@ class VIVirtualMachine:
                 self.__current_snapshot = \
                                    self.properties.snapshot.currentSnapshot._obj
             
+            self._root_snapshots = []
             for root_snap in self.properties.snapshot.rootSnapshotList:
                 root = VISnapshot(root_snap)
                 self._root_snapshots.append(root)
