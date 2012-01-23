@@ -38,6 +38,7 @@ class VIServer:
     def __init__(self):
         self.__logged = False
         self.__datacenters = None
+        self.__datastores = None
         self.__clusters = None
         self.__hosts =  None
         self.__resource_pools = None
@@ -70,7 +71,7 @@ class VIServer:
         try:
             #get the server's proxy
             locator = VI.VimServiceLocator()
-            if trace_file is None:
+            if not trace_file:
                 self._proxy = locator.getVimPortType(url=server_url)
             else:
                 trace=open(trace_file, 'w')
@@ -144,35 +145,94 @@ class VIServer:
     def get_hosts(self, from_cache=True):
         """Returns a dictionary of the existing hosts keys are their names
         and values their ManagedObjectReference object."""
-        if self.__hosts is not None and len(self.__hosts) != 0 and from_cache:
-            return self.__hosts
-        self.__hosts = {}
-        do_object_content = self._retrieve_properties_traversal(
-                                 property_names=['name'], obj_type='HostSystem')
-        try:
-            for oc in do_object_content:
-                mor = oc.Obj
-                properties = oc.PropSet
-                self.__hosts[properties[0].Val] = mor
-        except (VI.ZSI.FaultException), e:
-            raise VIApiException(e)
+        ret = self.__get_managed_objects_dict(self.__hosts,
+                                              'HostSystem',
+                                              from_cache)
+        #TODO: eventually do not invert dictionary
+        return dict([(v,k) for k,v in ret.items()])
 
-        return self.__hosts
+    def get_datastores(self, from_cache=True):
+        """Returns a dictionary of the existing datastores. Keys are
+        ManagedObjectReference and values datastore names"""
+        
+        return self.__get_managed_objects_dict(self.__datastores,
+                                               'Datastore',
+                                               from_cache)
+        
+    def get_clusters(self, from_cache=True):
+        """Returns a dictionary of the existing clusters. Keys are their 
+        ManagedObjectReference objects and values their names."""
+        
+        return self.__get_managed_objects_dict(self.__clusters,
+                                               'ClusterComputeResource',
+                                               from_cache)
+
+    def get_datacenters(self, from_cache=True):
+        """Returns a dictionary of the existing datacenters. keys are their
+        ManagedObjectReference objects and values their names."""
+        
+        return self.__get_managed_objects_dict(self.__datacenters,
+                                               'Datacenter',
+                                               from_cache)           
+
+    def get_resource_pools(self, from_cache=True, from_mor=None):
+        """Returns a dictionary of the existing ResourcePools. keys are their
+        ManagedObjectReference objects and values their full path names."""
+        
+        if self.__resource_pools and from_cache:
+            return self.__resource_pools
+
+        def get_path(nodes, node):
+            if 'parent' in node:
+                return get_path(nodes, rps[node['parent']]) + '/' + node['name']
+            else:
+                return '/' + node['name']
+        rps = {}
+        prop = self._retrieve_properties_traversal(
+                                      property_names=["name", "resourcePool"],
+                                      from_node=from_mor,
+                                      obj_type="ResourcePool")
+        for oc in prop:
+            this_rp = {}
+            this_rp["children"] = []
+            this_rp["mor"] = oc.get_element_obj()
+            mor_str = str(this_rp["mor"])
+            properties = oc.PropSet
+            if not properties:
+                continue
+            for prop in properties:
+                if prop.Name == "name":
+                    this_rp["name"] = prop.Val
+                elif prop.Name == "resourcePool":
+                    for rp in prop.Val.ManagedObjectReference:
+                        this_rp["children"].append(str(rp))
+            rps[mor_str] = this_rp
+        for _id, rp in rps.items():
+            for child in rp["children"]:
+                rps[child]["parent"] = _id
+        ret = {}
+        for rp in rps.values():
+            ret[rp["mor"]] = get_path(rps, rp) 
+        self.__resource_pools = ret
+
+        return self.__resource_pools
 
     def get_vm_by_path(self, path, datacenter=None):
         """Returns an instance of VIVirtualMachine. Where its path matches
         @path. The VM is searched througout all the datacenters, unless the
-        name of the datacenter the VM belongs to is provided."""
+        name or MOR of the datacenter the VM belongs to is provided."""
         if not self.__logged:
             raise VIException("Must call 'connect' before invoking this method",
                             FaultTypes.NOT_CONNECTED)
         try:
-            dc = self._get_datacenters()
+            dc = self.get_datacenters()
             dc_list = []
-            if datacenter is not None:
-                dc_list.append(dc[datacenter])
+            if datacenter and hasattr(datacenter, "get_attribute_type"):
+                dc_list.append(datacenter)
+            elif datacenter:
+                dc_list = [k for k,v in dc.items() if v==datacenter]
             else:
-                dc_list = dc.values()
+                dc_list = dc.keys()
 
             for mor_dc in dc_list:
                 request = VI.FindByDatastorePathRequestMsg()
@@ -242,9 +302,9 @@ class VIServer:
                                 resource_pool=None,
                                 status= None):
         """Returns a list of VM Paths. You might also filter by datacenter,
-        cluster, or resource pool by providing their names. if  cluster is set,
-        datacenter is ignored, and if resource pool is set both,
-        datacenter and cluster are ignored.
+        cluster, or resource pool by providing their name or MORs. 
+        if  cluster is set, datacenter is ignored, and if resource pool is set
+        both, datacenter and cluster are ignored.
         You can also filter by VM power state, by setting status to one of this
         values: 'poweredOn', 'poweredOff', 'suspended'
         """
@@ -258,15 +318,21 @@ class VIServer:
                 property_filter.append('runtime.powerState')
             ret = []
             node = self._do_service_content.RootFolder
-            if datacenter is not None:
-                dc = self._get_datacenters()
-                node = dc[datacenter]
-            if cluster is not None:
-                cl = self._get_clusters()
-                node = cl[cluster]
-            if resource_pool is not None:
-                rp = self._get_resource_pools()
-                node = rp[resource_pool]
+            if resource_pool and hasattr(resource_pool, "get_attribute_type"):
+                node = resource_pool
+            elif resource_pool:
+                node = [k for k,v in self.get_resource_pools().items()
+                        if v==resource_pool][0]
+            elif cluster and hasattr(cluster, "get_attribute_type"):
+                node = cluster
+            elif cluster:
+                node = [k for k,v in self.get_clusters().items() 
+                        if v==cluster][0]
+            elif datacenter and hasattr(datacenter, "get_attribute_type"):
+                node = datacenter
+            elif datacenter:
+                node = [k for k,v in self.get_datacenters().items()
+                        if v==datacenter][0]
 
             do_object_content = self._retrieve_properties_traversal(
                                             property_names=property_filter,
@@ -360,7 +426,6 @@ class VIServer:
             raise VIApiException(e)
         return tree
 
-
     def _get_object_properties(self, mor, property_names=[], get_all=False):
         """Returns the properties defined in property_names (or all if get_all
         is set to True) of the managed object reference given in @mor.
@@ -404,8 +469,6 @@ class VIServer:
 
         except (VI.ZSI.FaultException), e:
             raise VIApiException(e)
-
-
 
     def _get_object_properties_bulk(self, mor_list, properties):
         """Similar to _get_object_properties but you can retrieve different sets
@@ -464,94 +527,7 @@ class VIServer:
             return request_call(request)
 
         except (VI.ZSI.FaultException), e:
-            raise VIApiException(e)
-
-    def _get_datacenters(self, from_cache=True):
-        """Returns a dictionary of the existing datacenters keys are their names
-        and values their ManagedObjectReference object."""
-        if (self.__datacenters is not None and len(self.__datacenters) != 0 
-                                                                and from_cache):
-            return self.__datacenters
-        self.__datacenters = {}
-        do_object_content = self._retrieve_properties_traversal(
-                                 property_names=['name'], obj_type='Datacenter')
-        try:
-            for oc in do_object_content:
-                mor = oc.Obj
-                properties = oc.PropSet
-                self.__datacenters[properties[0].Val] = mor
-        except (VI.ZSI.FaultException), e:
-            raise VIApiException(e)
-
-        return self.__datacenters
-        
-
-    def _get_clusters(self, from_cache=True):
-        """Returns a dictionary of the existing clusters keys are their names
-        and values their ManagedObjectReference object."""
-        if (self.__clusters is not None and len(self.__clusters) != 0 
-                                                                and from_cache):
-            return self.__clusters
-        self.__clusters = {}
-        do_object_content = self._retrieve_properties_traversal(
-                     property_names=['name'], obj_type='ClusterComputeResource')
-        try:
-            for oc in do_object_content:
-                mor = oc.Obj
-                properties = oc.PropSet
-                if len(properties) > 0:
-                    self.__clusters[properties[0].Val] = mor
-        except (VI.ZSI.FaultException), e:
-            raise VIApiException(e)
-        return self.__clusters
-
-
-    def _get_resource_pools(self, from_cache=True, from_mor=None):
-        if self.__resource_pools and len(self.__resource_pools) != 0 and \
-                                                                    from_cache:
-            return self.__resource_pools
-
-        def get_path(nodes, node):
-            if 'parent' in node:
-                return get_path(nodes, rps[node['parent']]) + '/' + node['name']
-            else:
-                return '/' + node['name']
-
-        rps = {}
-        prop = self._retrieve_properties_traversal(
-                                      property_names=["name", "resourcePool"],
-                                      from_node=from_mor,
-                                      obj_type="ResourcePool")
-        for oc in prop:
-            this_rp = {}
-            this_rp["children"] = []
-            this_rp["mor"] = oc.get_element_obj()
-
-            mor_str = str(this_rp["mor"])
-
-            properties = oc.PropSet
-            if not properties:
-                continue
-
-            for prop in properties:
-                if prop.Name == "name":
-                    this_rp["name"] = prop.Val
-                elif prop.Name == "resourcePool":
-                    for rp in prop.Val.ManagedObjectReference:
-                        this_rp["children"].append(str(rp))
-
-            rps[mor_str] = this_rp
-
-        for _id, rp in rps.items():
-            for child in rp["children"]:
-                rps[child]["parent"] = _id
-
-        ret = {}
-        for rp in rps.values():
-            ret[get_path(rps, rp)] = rp["mor"]
-        self.__resource_pools = ret
-
-        return self.__resource_pools
+            raise VIApiException(e)                 
 
 
     def _retrieve_properties_traversal(self, property_names=[],
@@ -647,6 +623,16 @@ class VIServer:
             spec_array_datacenter_vm[0].set_element_name('visitFolders')
             dc_to_vmf.set_element_selectSet(spec_array_datacenter_vm)
 
+            #Traversal through datastore branch
+            dc_to_ds = VI.ns0.TraversalSpec_Def('dcToDs').pyclass()
+            dc_to_ds.set_element_name('dcToDs')
+            dc_to_ds.set_element_type('Datacenter')
+            dc_to_ds.set_element_path('datastore')
+            dc_to_ds.set_element_skip(False)
+            spec_array_datacenter_ds = [do_ObjectSpec_objSet.new_selectSet()]
+            spec_array_datacenter_ds[0].set_element_name('visitFolders')
+            dc_to_ds.set_element_selectSet(spec_array_datacenter_ds)
+
             #Recurse through all hosts
             h_to_vm = VI.ns0.TraversalSpec_Def('hToVm').pyclass()
             h_to_vm.set_element_name('hToVm')
@@ -669,19 +655,21 @@ class VIServer:
                                         do_ObjectSpec_objSet.new_selectSet(),
                                         do_ObjectSpec_objSet.new_selectSet(),
                                         do_ObjectSpec_objSet.new_selectSet(),
+                                        do_ObjectSpec_objSet.new_selectSet(),
                                         do_ObjectSpec_objSet.new_selectSet()]
             spec_array_visit_folders[0].set_element_name('visitFolders')
             spec_array_visit_folders[1].set_element_name('dcToHf')
             spec_array_visit_folders[2].set_element_name('dcToVmf')
             spec_array_visit_folders[3].set_element_name('crToH')
             spec_array_visit_folders[4].set_element_name('crToRp')
-            spec_array_visit_folders[5].set_element_name('hToVm')
-            spec_array_visit_folders[6].set_element_name('rpToVm')
+            spec_array_visit_folders[5].set_element_name('dcToDs')
+            spec_array_visit_folders[6].set_element_name('hToVm')
+            spec_array_visit_folders[7].set_element_name('rpToVm')
             visit_folders.set_element_selectSet(spec_array_visit_folders)
 
             #Add all of them here
-            spec_array = [visit_folders, dc_to_vmf, dc_to_hf, cr_to_h, cr_to_rp,
-                          rp_to_rp, h_to_vm, rp_to_vm]
+            spec_array = [visit_folders, dc_to_vmf, dc_to_ds, dc_to_hf, cr_to_h,
+                          cr_to_rp, rp_to_rp, h_to_vm, rp_to_vm]
 
             do_ObjectSpec_objSet.set_element_selectSet(spec_array)
             objects_set.append(do_ObjectSpec_objSet)
@@ -760,3 +748,53 @@ class VIServer:
             self.__initial_headers = {}
         else:
             self._proxy.binding.ResetHeaders()
+            
+    def __get_managed_objects_dict(self, original, mo_type, from_cache):
+        """Returns a dictionary of managed objects and their names"""
+        if original and from_cache:
+            return original
+        
+        obj_content = self._retrieve_properties_traversal(
+                      property_names=['name'], obj_type=mo_type)
+        try:
+            original = dict([(o.Obj, o.PropSet[0].Val)
+                            for o in obj_content])
+        except VI.ZSI.FaultException, e:
+            raise VIApiException(e)
+        return original
+    
+    
+    #---- DEPRECATED METHODS ----#    
+            
+    def _get_clusters(self, from_cache=True):
+        """DEPRECATED: use get_clusters instead."""
+        import warnings
+        from exceptions import DeprecationWarning
+        warnings.warn("method '_get_clusters' is DEPRECATED use "\
+                      "'get_clusters' instead",
+                      DeprecationWarning)
+        
+        ret = self.get_clusters(from_cache=from_cache)
+        return dict([(v,k) for k,v in ret.items()])
+    
+    def _get_datacenters(self, from_cache=True):
+        """DEPRECATED: use get_datacenters instead."""
+        import warnings
+        from exceptions import DeprecationWarning
+        warnings.warn("method '_get_datacenters' is DEPRECATED use "\
+                      "'get_datacenters' instead",
+                      DeprecationWarning)
+
+        ret = self.get_datacenters(from_cache=from_cache)
+        return dict([(v,k) for k,v in ret.items()])
+    
+    def _get_resource_pools(self, from_cache=True):
+        """DEPRECATED: use get_resource_pools instead."""
+        import warnings
+        from exceptions import DeprecationWarning
+        warnings.warn("method '_get_resource_pools' is DEPRECATED use "\
+                      "'get_resource_pools' instead",
+                      DeprecationWarning)
+
+        ret = self.get_resource_pools(from_cache=from_cache)
+        return dict([(v,k) for k,v in ret.items()])     
