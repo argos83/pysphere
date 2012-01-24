@@ -686,12 +686,27 @@ class VIVirtualMachine:
         except (VI.ZSI.FaultException), e:
             raise VIApiException(e)
 
-    def create_snapshot(self, name, description=None, sync_run=True):
-        """Takes a snapshot of this VM
-        If @sync_run is True (default) waits for the task to finish, and returns
-        (raises an exception if the task didn't succeed).
-        If sync_run is set to False the task is started an a VITask instance is
-        returned."""
+    def create_snapshot(self, name, sync_run=True, description=None,
+                        memory=True, quiesce=True):
+        """
+        Takes a snapshot of this VM
+        @sync_run: if True (default) waits for the task to finish, and returns
+            (raises an exception if the task didn't succeed). If False the task
+            is started an a VITask instance is returned.
+        @description: A description for this snapshot. If omitted, a default
+            description may be provided.
+        @memory: If True, a dump of the internal state of the virtual machine
+            (basically a memory dump) is included in the snapshot. Memory
+            snapshots consume time and resources, and thus take longer to
+            create. When set to FALSE, the power state of the snapshot is set to
+            powered off.
+        @quiesce: If True and the virtual machine is powered on when the
+            snapshot is taken, VMware Tools is used to quiesce the file system
+            in the virtual machine. This assures that a disk snapshot represents
+            a consistent state of the guest file systems. If the virtual machine
+            is powered off or VMware Tools are not available, the quiesce flag
+            is ignored. 
+        """
         try:
             request = VI.CreateSnapshot_TaskRequestMsg()
             mor_vm = request.new__this  (self._mor)
@@ -700,8 +715,8 @@ class VIVirtualMachine:
             request.set_element_name(name)
             if description:
                 request.set_element_description(description)
-            request.set_element_memory(True)
-            request.set_element_quiesce(True)
+            request.set_element_memory(memory)
+            request.set_element_quiesce(quiesce)
 
             task = self._server._proxy.CreateSnapshot_Task(request)._returnval
             vi_task = VITask(task, self._server)
