@@ -1,5 +1,5 @@
 #--
-# Copyright (c) 2011, Sebastian Tello
+# Copyright (c) 2012, Sebastian Tello
 # All rights reserved.
 
 # Redistribution and use in source and binary forms, with or without
@@ -35,6 +35,7 @@ from resources.vi_exception import VIException, VIApiException, FaultTypes
 from vi_task import VITask
 from vi_snapshot import VISnapshot
 from vi_property import VIProperty
+from vi_mor import VIMor, MORTypes
 
 class VIVirtualMachine:
 
@@ -102,7 +103,7 @@ class VIVirtualMachine:
                                                  vi_task.STATE_ERROR])
                 if status == vi_task.STATE_ERROR:
                     raise VIException(vi_task.get_error_message(),
-                                                          FaultTypes.TASK_ERROR)
+                                      FaultTypes.TASK_ERROR)
                 return
 
             return vi_task
@@ -128,7 +129,7 @@ class VIVirtualMachine:
                                                  vi_task.STATE_ERROR])
                 if status == vi_task.STATE_ERROR:
                     raise VIException(vi_task.get_error_message(),
-                                                          FaultTypes.TASK_ERROR)
+                                      FaultTypes.TASK_ERROR)
                 return
 
             return vi_task
@@ -154,7 +155,7 @@ class VIVirtualMachine:
                                                  vi_task.STATE_ERROR])
                 if status == vi_task.STATE_ERROR:
                     raise VIException(vi_task.get_error_message(),
-                                                          FaultTypes.TASK_ERROR)
+                                      FaultTypes.TASK_ERROR)
                 return
 
             return vi_task
@@ -177,7 +178,7 @@ class VIVirtualMachine:
                                                  vi_task.STATE_ERROR])
                 if status == vi_task.STATE_ERROR:
                     raise VIException(vi_task.get_error_message(),
-                                                          FaultTypes.TASK_ERROR)
+                                      FaultTypes.TASK_ERROR)
                 return
 
             return vi_task
@@ -448,11 +449,9 @@ class VIVirtualMachine:
             spec = request.new_spec()
             spec.set_element_powerOn(power_on)
             location = spec.new_location()
-            #If the provided resourcepool is a name path, get its MOR
-            if resourcepool and not hasattr(resourcepool, "get_attribute_type"):
-                raise VIException("Invalid resourcepool MOR object", 
-                                   FaultTypes.PARAMETER_ERROR)
             if resourcepool:
+                if not VIMor.is_mor(resourcepool):
+                    resourcepool = VIMor(resourcepool, MORTypes.ResourcePool)
                 pool = location.new_pool(resourcepool)
                 pool.set_attribute_type(resourcepool.get_attribute_type())
                 location.set_element_pool(pool)
@@ -473,7 +472,81 @@ class VIVirtualMachine:
 
         except (VI.ZSI.FaultException), e:
             raise VIApiException(e)
+
+    #-------------#
+    #-- VMOTION --#
+    #-------------#
+    def migrate(self, sync_run=True, priority='default', resource_pool=None,
+                host=None, state=None):
+        """
+        Cold or Hot migrates this VM to a new host or resource pool.
+        @sync_run: If True (default) waits for the task to finish, and returns 
+            (raises an exception if the task didn't succeed). If False the task
+            is started an a VITask instance is returned.
+        @priority: either 'default', 'high', or 'low': priority of the task that
+            moves the vm. Note this priority can affect both the source and 
+            target hosts.
+        @resource_pool: The target resource pool for the virtual machine. If the
+            pool parameter is left unset, the virtual machine's current pool is
+            used as the target pool.
+        @host: The target host to which the virtual machine is intended to 
+            migrate. The host parameter may be left unset if the compute 
+            resource associated with the target pool represents a stand-alone
+            host or a DRS-enabled cluster. In the former case the stand-alone
+            host is used as the target host. In the latter case, the DRS system
+            selects an appropriate target host from the cluster.
+        @state: If specified, the virtual machine migrates only if its state
+            matches the specified state. 
+        """
+        try:
+            if priority not in ['default', 'low', 'high']:
+                raise VIException("priority must be either 'default', 'low', "
+                                  "or 'high'.", FaultTypes.PARAMETER_ERROR)
+            if state and state not in [None, VMPowerState.POWERED_ON,
+                              VMPowerState.POWERED_OFF, VMPowerState.SUSPENDED]:
+                raise VIException("state, if set, must be either '%s', '%s', "
+                                  "or '%s'." % (VMPowerState.POWERED_ON,
+                                                VMPowerState.POWERED_OFF,
+                                                VMPowerState.SUSPENDED),
+                                   FaultTypes.PARAMETER_ERROR)
+                
+            request = VI.MigrateVM_TaskRequestMsg()
+            _this = request.new__this(self._mor)
+            _this.set_attribute_type(self._mor.get_attribute_type())
+            request.set_element__this(_this)
+            if resource_pool:
+                if not VIMor.is_mor(resource_pool):
+                    resource_pool = VIMor(resource_pool, MORTypes.ResourcePool)
+                pool = request.new_pool(resource_pool)
+                pool.set_attribute_type(resource_pool.get_attribute_type())
+                request.set_element_pool(pool)
+            if host:
+                if not VIMor.is_mor(host):
+                    host = VIMor(host, MORTypes.HostSystem)
+                mor_host = request.new_host(host)
+                mor_host.set_attribute_type(host.get_attribute_type())
+                request.set_element_host(mor_host)
+            request.set_element_priority(priority + "Priority")
+            if state:
+                states = {VMPowerState.POWERED_ON:  'poweredOn',
+                          VMPowerState.POWERED_OFF: 'poweredOff',
+                          VMPowerState.SUSPENDED:   'suspended'}
+                request.set_element_state(states[state])
             
+            task = self._server._proxy.MigrateVM_Task(request)._returnval
+            vi_task = VITask(task, self._server)
+            if sync_run:
+                status = vi_task.wait_for_state([vi_task.STATE_SUCCESS,
+                                                 vi_task.STATE_ERROR])
+                if status == vi_task.STATE_ERROR:
+                    raise VIException(vi_task.get_error_message(),
+                                      FaultTypes.TASK_ERROR)
+                return
+
+            return vi_task
+        except (VI.ZSI.FaultException), e:
+            raise VIApiException(e)
+        
 
     #----------------------#
     #-- SNAPSHOT METHODS --#
@@ -518,7 +591,7 @@ class VIVirtualMachine:
                                                  vi_task.STATE_ERROR])
                 if status == vi_task.STATE_ERROR:
                     raise VIException(vi_task.get_error_message(),
-                                                          FaultTypes.TASK_ERROR)
+                                      FaultTypes.TASK_ERROR)
                 return
 
             return vi_task
@@ -561,7 +634,7 @@ class VIVirtualMachine:
                                                  vi_task.STATE_ERROR])
                 if status == vi_task.STATE_ERROR:
                     raise VIException(vi_task.get_error_message(),
-                                                          FaultTypes.TASK_ERROR)
+                                      FaultTypes.TASK_ERROR)
                 return
 
             return vi_task
@@ -584,9 +657,8 @@ class VIVirtualMachine:
                 mor = snap._mor
                 break
         if not mor:
-            raise VIException(
-                           "Could not find snapshot with path '%s' (index %d)" %
-                                   (path, index), FaultTypes.SNAPSHOT_NOT_FOUND)
+            raise VIException("Couldn't find snapshot with path '%s' (index %d)"
+                              % (path, index), FaultTypes.SNAPSHOT_NOT_FOUND)
 
         try:
             request = VI.RevertToSnapshot_TaskRequestMsg()
@@ -606,7 +678,7 @@ class VIVirtualMachine:
                                                  vi_task.STATE_ERROR])
                 if status == vi_task.STATE_ERROR:
                     raise VIException(vi_task.get_error_message(),
-                                                          FaultTypes.TASK_ERROR)
+                                      FaultTypes.TASK_ERROR)
                 return
 
             return vi_task
@@ -639,7 +711,7 @@ class VIVirtualMachine:
                 self.refresh_snapshot_list()
                 if status == vi_task.STATE_ERROR:
                     raise VIException(vi_task.get_error_message(),
-                                                          FaultTypes.TASK_ERROR)
+                                      FaultTypes.TASK_ERROR)
                 return
 
             return vi_task
@@ -696,9 +768,8 @@ class VIVirtualMachine:
                 mor = snap._mor
                 break
         if not mor:
-            raise VIException(
-                           "Could not find snapshot with path '%s' (index %d)" %
-                                   (path, index), FaultTypes.SNAPSHOT_NOT_FOUND)
+            raise VIException("Couldn't find snapshot with path '%s' (index %d)"
+                              % (path, index), FaultTypes.SNAPSHOT_NOT_FOUND)
 
         self.__delete_snapshot(mor, remove_children, sync_run)
 
@@ -734,7 +805,7 @@ class VIVirtualMachine:
                                                  vi_task.STATE_ERROR])
                 if status == vi_task.STATE_ERROR:
                     raise VIException(vi_task.get_error_message(),
-                                                          FaultTypes.TASK_ERROR)
+                                      FaultTypes.TASK_ERROR)
                 return
 
             return vi_task
@@ -1396,7 +1467,7 @@ class VIVirtualMachine:
                 self.refresh_snapshot_list()
                 if status == vi_task.STATE_ERROR:
                     raise VIException(vi_task.get_error_message(),
-                                                          FaultTypes.TASK_ERROR)
+                                      FaultTypes.TASK_ERROR)
                 return
 
             return vi_task

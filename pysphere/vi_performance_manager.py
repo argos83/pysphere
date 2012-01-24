@@ -1,5 +1,5 @@
 #--
-# Copyright (c) 2011, Sebastian Tello, Alejandro Lozanoff
+# Copyright (c) 2012, Sebastian Tello, Alejandro Lozanoff
 # All rights reserved.
 
 # Redistribution and use in source and binary forms, with or without

@@ -1,5 +1,5 @@
 #--
-# Copyright (c) 2011, Sebastian Tello
+# Copyright (c) 2012, Sebastian Tello
 # All rights reserved.
 
 # Redistribution and use in source and binary forms, with or without
@@ -163,11 +163,13 @@
 # accompanying credits file.
 #
 #--
-__all__ = ['VIServer', 'VIException', 'VIApiException',
-           'VMPowerState', 'ToolsStatus', 'VIProperty']
+__all__ = ['VIServer', 'VIException', 'VIApiException', 'VITask',
+            'VIMor', 'MORTypes', 'VMPowerState', 'ToolsStatus', 'VIProperty']
 
 from vi_server import VIServer
 from vi_virtual_machine import VMPowerState, ToolsStatus
 from vi_property import VIProperty
+from vi_task import VITask
+from vi_mor import VIMor, MORTypes
 from resources.vi_exception import VIException, VIApiException
 #from version import version as __version__

@@ -1,5 +1,5 @@
 #--
-# Copyright (c) 2011, Sebastian Tello
+# Copyright (c) 2012, Sebastian Tello
 # All rights reserved.
 
 # Redistribution and use in source and binary forms, with or without
@@ -32,6 +32,7 @@ from resources import VimService_services as VI
 from resources.vi_exception import *
 from vi_virtual_machine import VIVirtualMachine
 from vi_performance_manager import PerformanceManager
+from vi_mor import VIMor
 
 class VIServer:
 
@@ -145,11 +146,9 @@ class VIServer:
     def get_hosts(self, from_cache=True):
         """Returns a dictionary of the existing hosts keys are their names
         and values their ManagedObjectReference object."""
-        ret = self.__get_managed_objects_dict(self.__hosts,
+        return self.__get_managed_objects_dict(self.__hosts,
                                               'HostSystem',
                                               from_cache)
-        #TODO: eventually do not invert dictionary
-        return dict([(v,k) for k,v in ret.items()])
 
     def get_datastores(self, from_cache=True):
         """Returns a dictionary of the existing datastores. Keys are
@@ -227,7 +226,7 @@ class VIServer:
         try:
             dc = self.get_datacenters()
             dc_list = []
-            if datacenter and hasattr(datacenter, "get_attribute_type"):
+            if datacenter and VIMor.is_mor(datacenter):
                 dc_list.append(datacenter)
             elif datacenter:
                 dc_list = [k for k,v in dc.items() if v==datacenter]
@@ -318,17 +317,17 @@ class VIServer:
                 property_filter.append('runtime.powerState')
             ret = []
             node = self._do_service_content.RootFolder
-            if resource_pool and hasattr(resource_pool, "get_attribute_type"):
+            if resource_pool and VIMor.is_mor(resource_pool):
                 node = resource_pool
             elif resource_pool:
                 node = [k for k,v in self.get_resource_pools().items()
                         if v==resource_pool][0]
-            elif cluster and hasattr(cluster, "get_attribute_type"):
+            elif cluster and VIMor.is_mor(cluster):
                 node = cluster
             elif cluster:
                 node = [k for k,v in self.get_clusters().items() 
                         if v==cluster][0]
-            elif datacenter and hasattr(datacenter, "get_attribute_type"):
+            elif datacenter and VIMor.is_mor(datacenter):
                 node = datacenter
             elif datacenter:
                 node = [k for k,v in self.get_datacenters().items()
