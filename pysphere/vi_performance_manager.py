@@ -80,10 +80,7 @@ class PerformanceManager:
             performance counter ID and an instance name.
         counter_obj [list]: An array consisting of performance
             counter information for the specified counterIds.
-        counter_name [list of strings]: The wanted counter name.
         """
-        if not isinstance(counter_ids, list):
-            counter_name = [counter_name]
         metric_list = []
         for metric in metrics:
             if metric.CounterId in counter_ids:

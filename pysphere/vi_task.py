@@ -107,17 +107,16 @@ class VITask:
     def __poll_task_info(self, retries=3, interval=2):
         for i in range(retries):
             try:
-                do_object_content = self._server._get_object_properties(
+                object_content = self._server._get_object_properties(
                                                         self._mor, get_all=True)
-                if do_object_content is None:
-                    raise Exception("do_object_content is None")
+                if not object_content:
+                    raise Exception("Couldn't retrieve object properties")
 
-                for oc in do_object_content:
-                    properties = oc.PropSet
-                    for prop in properties:
-                        if prop.Name == 'info':
-                            self._task_info = prop.Val
-                            return True
+                properties = object_content.PropSet
+                for prop in properties:
+                    if prop.Name == 'info':
+                        self._task_info = prop.Val
+                        return True
             except Exception, e:
                 if i == retries -1:
                     raise e

@@ -205,14 +205,12 @@ class VIVirtualMachine:
                            'poweredOff': VMPowerState.POWERED_OFF,
                            'suspended': VMPowerState.SUSPENDED}
 
-        vm_has_question = False
         power_state = None
 
         oc_vm_status_msg = self._server._get_object_properties(
                       self._mor,
                       property_names=['runtime.question', 'runtime.powerState']
                       )
-        oc_vm_status_msg = oc_vm_status_msg[0]
         properties = oc_vm_status_msg.PropSet
         for prop in properties:
             if prop.Name == 'runtime.powerState':
@@ -229,7 +227,6 @@ class VIVirtualMachine:
                       self._mor_vm_task_collector,
                       property_names=['latestPage']
                       )
-        oc_task_history = oc_task_history[0]
         properties = oc_task_history.PropSet
         if len(properties) == 0:
             return vi_power_states.get(power_state, VMPowerState.UNKNOWN)
@@ -420,7 +417,7 @@ class VIVirtualMachine:
             #get the folder to create the VM
             folders = self._server._retrieve_properties_traversal(
                                          property_names=['name', 'childEntity'],
-                                         obj_type="Folder")
+                                         obj_type=MORTypes.Folder)
             folder_mor = None
             for f in folders:
                 fname = ""
@@ -435,10 +432,10 @@ class VIVirtualMachine:
                     break
             if not folder_mor and folder:
                 raise VIException("Couldn't find folder %s" % folder,
-                                  FaultTypes.FOLDER_NOT_FOUND)
+                                  FaultTypes.OBJECT_NOT_FOUND)
             elif not folder_mor:
                 raise VIException("Error locating current VM folder",
-                                  FaultTypes.FOLDER_NOT_FOUND)
+                                  FaultTypes.OBJECT_NOT_FOUND)
     
             request = VI.CloneVM_TaskRequestMsg()
             _this = request.new__this(self._mor)
@@ -614,7 +611,7 @@ class VIVirtualMachine:
                 break
         if not mor:
             raise VIException("Could not find snapshot '%s'" % name,
-                              FaultTypes.SNAPSHOT_NOT_FOUND)
+                              FaultTypes.OBJECT_NOT_FOUND)
 
         try:
             request = VI.RevertToSnapshot_TaskRequestMsg()
@@ -658,7 +655,7 @@ class VIVirtualMachine:
                 break
         if not mor:
             raise VIException("Couldn't find snapshot with path '%s' (index %d)"
-                              % (path, index), FaultTypes.SNAPSHOT_NOT_FOUND)
+                              % (path, index), FaultTypes.OBJECT_NOT_FOUND)
 
         try:
             request = VI.RevertToSnapshot_TaskRequestMsg()
@@ -743,7 +740,7 @@ class VIVirtualMachine:
         self.refresh_snapshot_list()
         if not self.__current_snapshot:
             raise VIException("There is no current snapshot",
-                              FaultTypes.SNAPSHOT_NOT_FOUND)
+                              FaultTypes.OBJECT_NOT_FOUND)
 
         return self.__delete_snapshot(self.__current_snapshot, remove_children,
                                                                        sync_run)
@@ -762,7 +759,7 @@ class VIVirtualMachine:
                 break
         if mor is None:
             raise VIException("Could not find snapshot '%s'" % name,
-                              FaultTypes.SNAPSHOT_NOT_FOUND)
+                              FaultTypes.OBJECT_NOT_FOUND)
 
         return self.__delete_snapshot(mor, remove_children, sync_run)
 
@@ -784,7 +781,7 @@ class VIVirtualMachine:
                 break
         if not mor:
             raise VIException("Couldn't find snapshot with path '%s' (index %d)"
-                              % (path, index), FaultTypes.SNAPSHOT_NOT_FOUND)
+                              % (path, index), FaultTypes.OBJECT_NOT_FOUND)
 
         self.__delete_snapshot(mor, remove_children, sync_run)
 
@@ -843,9 +840,8 @@ class VIVirtualMachine:
                     'toolsOk':ToolsStatus.RUNNING,
                     'toolsOld':ToolsStatus.RUNNING_OLD}
 
-        do_object_content = self._server._get_object_properties(self._mor,
+        oc = self._server._get_object_properties(self._mor,
                                            property_names=['guest.toolsStatus'])
-        oc = do_object_content[0]
         if not hasattr(oc, 'PropSet'):
             return ToolsStatus.UNKNOWN
         prop_set = oc.PropSet
@@ -1260,9 +1256,9 @@ class VIVirtualMachine:
             vm.set_attribute_type(self._mor.get_attribute_type())
             request.set_element_vm(vm)
             request.set_element_auth(self._auth_obj)
-            vars = self._server._proxy.ReadEnvironmentVariableInGuest(request
+            envvars = self._server._proxy.ReadEnvironmentVariableInGuest(request
                                                                     )._returnval
-            return dict([v.split("=", 1) for v in vars])
+            return dict([v.split("=", 1) for v in envvars])
         except (VI.ZSI.FaultException), e:
             raise VIApiException(e)
 
@@ -1381,9 +1377,8 @@ class VIVirtualMachine:
         """Returns the name of the resource pool where this VM belongs to. Or
         None if there isn't any or it can't be retrieved"""
         if self._resource_pool:
-            do_object_content = self._server._get_object_properties(
+            oc = self._server._get_object_properties(
                                    self._resource_pool, property_names=['name'])
-            oc = do_object_content[0]
             if not hasattr(oc, 'PropSet'):
                 return None
             prop_set = oc.PropSet
@@ -1567,12 +1562,12 @@ class VIVirtualMachine:
                                    })
         
         def update_files(files):
-            for file in files:
-                self._files[file.key] = {
-                                        'key': file.key,
-                                        'name': file.name,
-                                        'size': file.size,
-                                        'type': file.type
+            for file_info in files:
+                self._files[file_info.key] = {
+                                        'key': file_info.key,
+                                        'name': file_info.name,
+                                        'size': file_info.size,
+                                        'type': file_info.type
                                         }
                 
         

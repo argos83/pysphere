@@ -51,7 +51,7 @@ class VIProperty(object):
         #If this is a MOR we need to recurse
         if self._type == 'ManagedObjectReference':
             oc = self._server._get_object_properties(self._obj, get_all=True)
-            ps = oc[0].get_element_propSet()
+            ps = oc.get_element_propSet()
             self._values = dict([(i.Name, i.Val) for i in ps])
         #Just inspect the attributes
         else:

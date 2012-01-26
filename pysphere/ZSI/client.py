@@ -3,6 +3,8 @@
 #
 # Copyright (c) 2001 Zolera Systems.  All rights reserved.
 
+import threading
+
 from pysphere.ZSI import _copyright, _seqtypes, ParsedSoap, SoapWriter, TC, ZSI_SCHEMA_URI,\
     EvaluateException, FaultFromFaultMessage, _child_elements, _attrs, _find_arraytype,\
     _find_type, _get_idstr, _get_postvalue_from_absoluteURI, FaultException, WSActionException,\
@@ -113,8 +115,8 @@ class _Binding:
             sig_handler -- XML Signature handler, must sign and verify.
             endPointReference -- optional Endpoint Reference.
         '''
-        self.data = None
-        self.ps = None
+        #self.data = None
+        #self.ps = None
         self.user_headers = []
         self.nsdict = nsdict or {}
         self.transport = transport
@@ -130,6 +132,9 @@ class _Binding:
         self.endPointReference = kw.get('endPointReference', None)
         self.cookies = Cookie.SimpleCookie()
         self.http_callbacks = {}
+        
+        #thread local data
+        self.local = threading.local()
 
         if kw.has_key('auth'):
             self.SetAuth(*kw['auth'])
@@ -167,7 +172,7 @@ class _Binding:
         return self
 
     def __addcookies(self):
-        '''Add cookies from self.cookies to request in self.h
+        '''Add cookies from self.cookies to request in self.local.h
         '''
         for cname, morsel in self.cookies.items():
             attrs = []
@@ -181,7 +186,7 @@ class _Binding:
             value = morsel.get('domain')
             if value:
                 attrs.append('$Domain=%s' % value)
-            self.h.putheader('Cookie', "; ".join(attrs))
+            self.local.h.putheader('Cookie', "; ".join(attrs))
 
     def RPC(self, url, opname, obj, replytype=None, **kw):
         '''Send a request, return the reply.  See Send() and Recieve()
@@ -248,7 +253,7 @@ class _Binding:
             sw.serialize(obj, requesttypecode)
 
         for i in soapheaders:
-           sw.serialize_header(i)
+            sw.serialize_header(i)
 
         #
         # Determine the SOAP auth element.  SOAP:Header element
@@ -287,10 +292,10 @@ class _Binding:
             raise TypeError, 'transport must be a HTTPConnection'
 
         soapdata = str(sw)
-        self.h = transport(netloc, None, **self.transdict)
-        self.h.connect()
-        self.boundary = sw.getMIMEBoundary()
-        self.startCID = sw.getStartCID()
+        self.local.h = transport(netloc, None, **self.transdict)
+        self.local.h.connect()
+        self.local.boundary = sw.getMIMEBoundary()
+        self.local.startCID = sw.getStartCID()
         self.SendSOAPData(soapdata, url, soapaction, **kw)
 
     def SendSOAPData(self, soapdata, url, soapaction, headers={}, **kw):
@@ -301,26 +306,26 @@ class _Binding:
 
         url = url or self.url
         request_uri = _get_postvalue_from_absoluteURI(url)
-        self.h.putrequest("POST", request_uri)
-        self.h.putheader("Content-Length", "%d" % len(soapdata))
-        if len(self.boundary) == 0:
+        self.local.h.putrequest("POST", request_uri)
+        self.local.h.putheader("Content-Length", "%d" % len(soapdata))
+        if len(self.local.boundary) == 0:
             #no attachment
-            self.h.putheader("Content-Type", 'text/xml; charset="%s"' %UNICODE_ENCODING)
+            self.local.h.putheader("Content-Type", 'text/xml; charset="%s"' %UNICODE_ENCODING)
         else:
             #we have attachment
             contentType =  "multipart/related; "
-            self.h.putheader("Content-Type" , "multipart/related; boundary=\"" + self.boundary + "\"; start=\"" + self.startCID + '\"; type="text/xml"')
+            self.local.h.putheader("Content-Type" , "multipart/related; boundary=\"" + self.local.boundary + "\"; start=\"" + self.local.startCID + '\"; type="text/xml"')
         self.__addcookies()
 
         for header,value in headers.items():
-            self.h.putheader(header, value)
+            self.local.h.putheader(header, value)
 
         SOAPActionValue = '"%s"' % (soapaction or self.soapaction)
-        self.h.putheader("SOAPAction", SOAPActionValue)
+        self.local.h.putheader("SOAPAction", SOAPActionValue)
         if self.auth_style & AUTH.httpbasic:
             val = _b64_encode(self.auth_user + ':' + self.auth_pass) \
                         .replace("\012", "")
-            self.h.putheader('Authorization', 'Basic ' + val)
+            self.local.h.putheader('Authorization', 'Basic ' + val)
         elif self.auth_style == AUTH.httpdigest and not headers.has_key('Authorization') \
             and not headers.has_key('Expect'):
             def digest_auth_cb(response):
@@ -329,12 +334,12 @@ class _Binding:
             self.http_callbacks[401] = digest_auth_cb
 
         for header,value in self.user_headers:
-            self.h.putheader(header, value)
-        self.h.endheaders()
-        self.h.send(soapdata)
+            self.local.h.putheader(header, value)
+        self.local.h.endheaders()
+        self.local.h.send(soapdata)
 
         # Clear prior receive state.
-        self.data, self.ps = None, None
+        self.local.data, self.local.ps = None, None
 
     def SendSOAPDataHTTPDigestAuth(self, response, soapdata, url, request_uri, soapaction, **kw):
         '''Resend the initial request w/http digest authorization headers.
@@ -375,19 +380,19 @@ class _Binding:
     def ReceiveRaw(self, **kw):
         '''Read a server reply, unconverted to any format and return it.
         '''
-        if self.data: return self.data
+        if self.local.data: return self.local.data
         trace = self.trace
         while 1:
-            response = self.h.getresponse()
-            self.reply_code, self.reply_msg, self.reply_headers, self.data = \
+            response = self.local.h.getresponse()
+            reply_code, reply_msg, self.local.reply_headers, self.local.data = \
                 response.status, response.reason, response.msg, response.read()
             if trace:
                 print >>trace, "_" * 33, time.ctime(time.time()), "RESPONSE:"
-                for i in (self.reply_code, self.reply_msg,):
+                for i in (reply_code, reply_msg,):
                     print >>trace, str(i)
                 print >>trace, "-------"
-                print >>trace, str(self.reply_headers)
-                print >>trace, self.data
+                print >>trace, str(self.local.reply_headers)
+                print >>trace, self.local.data
             saved = None
             for d in response.msg.getallmatchingheaders('set-cookie'):
                 if d[0] in [ ' ', '\t' ]:
@@ -405,49 +410,49 @@ class _Binding:
 
             # The httplib doesn't understand the HTTP continuation header.
             # Horrible internals hack to patch things up.
-            self.h._HTTPConnection__state = httplib._CS_REQ_SENT
-            self.h._HTTPConnection__response = None
-        return self.data
+            self.local.h._HTTPConnection__state = httplib._CS_REQ_SENT
+            self.local.h._HTTPConnection__response = None
+        return self.local.data
 
     def IsSOAP(self):
-        if self.ps: return 1
+        if self.local.ps: return 1
         self.ReceiveRaw()
-        mimetype = self.reply_headers.type
+        mimetype = self.local.reply_headers.type
         return mimetype == 'text/xml'
 
     def ReceiveSOAP(self, readerclass=None, **kw):
         '''Get back a SOAP message.
         '''
-        if self.ps: return self.ps
+        if self.local.ps: return self.local.ps
         if not self.IsSOAP():
             raise TypeError(
-                'Response is "%s", not "text/xml"' % self.reply_headers.type)
-        if len(self.data) == 0:
+                'Response is "%s", not "text/xml"' % self.local.reply_headers.type)
+        if len(self.local.data) == 0:
             raise TypeError('Received empty response')
 
-        self.ps = ParsedSoap(self.data,
+        self.local.ps = ParsedSoap(self.local.data,
                         readerclass=readerclass or self.readerclass,
                         encodingStyle=kw.get('encodingStyle'))
 
         if self.sig_handler is not None:
-            self.sig_handler.verify(self.ps)
+            self.sig_handler.verify(self.local.ps)
 
-        return self.ps
+        return self.local.ps
 
     def IsAFault(self):
         '''Get a SOAP message, see if it has a fault.
         '''
         self.ReceiveSOAP()
-        return self.ps.IsAFault()
+        return self.local.ps.IsAFault()
 
     def ReceiveFault(self, **kw):
         '''Parse incoming message as a fault. Raise TypeError if no
         fault found.
         '''
         self.ReceiveSOAP(**kw)
-        if not self.ps.IsAFault():
+        if not self.local.ps.IsAFault():
             raise TypeError("Expected SOAP Fault not found")
-        return FaultFromFaultMessage(self.ps)
+        return FaultFromFaultMessage(self.local.ps)
 
     def Receive(self, replytype, **kw):
         '''Parse message, create Python object.
@@ -458,17 +463,17 @@ class _Binding:
                 receive.
         '''
         self.ReceiveSOAP(**kw)
-        if self.ps.IsAFault():
-            msg = FaultFromFaultMessage(self.ps)
+        if self.local.ps.IsAFault():
+            msg = FaultFromFaultMessage(self.local.ps)
             raise FaultException(msg)
 
         tc = replytype
         if hasattr(replytype, 'typecode'):
             tc = replytype.typecode
 
-        reply = self.ps.Parse(tc)
+        reply = self.local.ps.Parse(tc)
         if self.address is not None:
-            self.address.checkResponse(self.ps, kw.get('wsaction'))
+            self.address.checkResponse(self.local.ps, kw.get('wsaction'))
         return reply
 
     def __repr__(self):
@@ -517,16 +522,16 @@ class Binding(_Binding):
             self.logger.debug('didnt find typecode for "%s" in typesmodule: %s',
                 node.localName, self.typesmodule)
             tc = TC.Any(aslist=1)
-            return tc.parse(node, self.ps)
+            return tc.parse(node, self.local.ps)
 
         self.logger.debug('parse child with typecode : %s', tc)
         try:
-            return tc.parse(node, self.ps)
+            return tc.parse(node, self.local.ps)
         except Exception:
             self.logger.debug('parse failed try Any : %s', tc)
 
         tc = TC.Any(aslist=1)
-        return tc.parse(node, self.ps)
+        return tc.parse(node, self.local.ps)
 
     def Receive(self, replytype, **kw):
         '''Parse message, create Python object.
@@ -537,7 +542,7 @@ class Binding(_Binding):
                 receive.
         '''
         self.ReceiveSOAP(**kw)
-        ps = self.ps
+        ps = self.local.ps
         tp = _find_type(ps.body_root)
         isarray = ((type(tp) in (tuple,list) and tp[1] == 'Array') or _find_arraytype(ps.body_root))
         if self.typesmodule is None or isarray:

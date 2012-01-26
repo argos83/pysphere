@@ -1,0 +1,15 @@
+[READ_ONLY_ENV]
+
+host = hostname
+user = username
+password = secret
+server_type = VMware vCenter Server
+api_version = 4.1
+
+[SANDBOX_ENV]
+
+host = hostname
+user = root
+password = secret2
+server_type = ESXi
+api_version = 5.0

@@ -21,3 +21,4 @@ New in 0.1.6
 - Fix issue 3, 4
 - Added method migrate in VIVirtualMachine
 - Added VIMor class
+- Multithread support

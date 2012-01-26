@@ -41,7 +41,7 @@ class VIMor(str):
     
     def set_attribute_type(self, mor_type):
         self._mor_type = mor_type
-        
+    
     @staticmethod
     def is_mor(obj):
         return hasattr(obj, "get_attribute_type")

@@ -32,17 +32,12 @@ from resources import VimService_services as VI
 from resources.vi_exception import *
 from vi_virtual_machine import VIVirtualMachine
 from vi_performance_manager import PerformanceManager
-from vi_mor import VIMor
+from vi_mor import VIMor, MORTypes
 
 class VIServer:
 
     def __init__(self):
         self.__logged = False
-        self.__datacenters = None
-        self.__datastores = None
-        self.__clusters = None
-        self.__hosts =  None
-        self.__resource_pools = None
         self.__server_type = None
         self.__api_version = None
         self.__session = None
@@ -84,7 +79,7 @@ class VIServer:
             #get service content from service instance
             request = VI.RetrieveServiceContentRequestMsg()
             mor_service_instance = request.new__this('ServiceInstance')
-            mor_service_instance.set_attribute_type('ServiceInstance')
+            mor_service_instance.set_attribute_type(MORTypes.ServiceInstance)
             request.set_element__this(mor_service_instance)
             self._do_service_content = self._proxy.RetrieveServiceContent(
                                                              request)._returnval
@@ -95,7 +90,7 @@ class VIServer:
             request = VI.LoginRequestMsg()
             mor_session_manager = request.new__this(
                                         self._do_service_content.SessionManager)
-            mor_session_manager.set_attribute_type('SessionManager')
+            mor_session_manager.set_attribute_type(MORTypes.SessionManager)
             request.set_element__this(mor_session_manager)
             request.set_element_userName(user)
             request.set_element_password(password)
@@ -113,7 +108,7 @@ class VIServer:
                             FaultTypes.NOT_CONNECTED)
         request = VI.CurrentTimeRequestMsg()
         mor_service_instance = request.new__this("ServiceInstance")
-        mor_service_instance.set_attribute_type("ServiceInstance")
+        mor_service_instance.set_attribute_type(MORTypes.ServiceInstance)
         request.set_element__this(mor_service_instance)
         try:
             self._proxy.CurrentTime(request)
@@ -133,7 +128,7 @@ class VIServer:
                 request = VI.LogoutRequestMsg()
                 mor_session_manager = request.new__this(
                                         self._do_service_content.SessionManager)
-                mor_session_manager.set_attribute_type('SessionManager')
+                mor_session_manager.set_attribute_type(MORTypes.SessionManager)
                 request.set_element__this(mor_session_manager)
                 self._proxy.Logout(request)
             except (VI.ZSI.FaultException), e:
@@ -143,43 +138,51 @@ class VIServer:
         """Returns a Performance Manager entity"""
         return PerformanceManager(self, self._do_service_content.PerfManager)
 
-    def get_hosts(self, from_cache=True):
-        """Returns a dictionary of the existing hosts keys are their names
-        and values their ManagedObjectReference object."""
-        return self.__get_managed_objects_dict(self.__hosts,
-                                              'HostSystem',
-                                              from_cache)
+    def get_hosts(self, from_mor=None):
+        """
+        Returns a dictionary of the existing hosts keys are their names
+        and values their ManagedObjectReference object.
+        @from_mor: if given, retrieves the hosts contained within the specified 
+            managed entity.
+        """
+        return self.__get_managed_objects_dict(MORTypes.HostSystem, from_mor)
+    
 
-    def get_datastores(self, from_cache=True):
-        """Returns a dictionary of the existing datastores. Keys are
-        ManagedObjectReference and values datastore names"""
+    def get_datastores(self, from_mor=None):
+        """
+        Returns a dictionary of the existing datastores. Keys are
+        ManagedObjectReference and values datastore names.
+        @from_mor: if given, retrieves the datastores contained within the 
+            specified managed entity.
+        """
+        return self.__get_managed_objects_dict(MORTypes.Datastore, from_mor)
         
-        return self.__get_managed_objects_dict(self.__datastores,
-                                               'Datastore',
-                                               from_cache)
-        
-    def get_clusters(self, from_cache=True):
-        """Returns a dictionary of the existing clusters. Keys are their 
-        ManagedObjectReference objects and values their names."""
-        
-        return self.__get_managed_objects_dict(self.__clusters,
-                                               'ClusterComputeResource',
-                                               from_cache)
+    def get_clusters(self, from_mor=None):
+        """
+        Returns a dictionary of the existing clusters. Keys are their 
+        ManagedObjectReference objects and values their names.
+        @from_mor: if given, retrieves the clusters contained within the 
+            specified managed entity.
+        """
+        return self.__get_managed_objects_dict(MORTypes.ClusterComputeResource,
+                                               from_mor)
 
-    def get_datacenters(self, from_cache=True):
-        """Returns a dictionary of the existing datacenters. keys are their
-        ManagedObjectReference objects and values their names."""
-        
-        return self.__get_managed_objects_dict(self.__datacenters,
-                                               'Datacenter',
-                                               from_cache)           
+    def get_datacenters(self, from_mor=None):
+        """
+        Returns a dictionary of the existing datacenters. keys are their
+        ManagedObjectReference objects and values their names.
+        @from_mor: if given, retrieves the datacenters contained within the 
+            specified managed entity.
+        """
+        return self.__get_managed_objects_dict(MORTypes.Datacenter, from_mor)           
 
-    def get_resource_pools(self, from_cache=True, from_mor=None):
-        """Returns a dictionary of the existing ResourcePools. keys are their
-        ManagedObjectReference objects and values their full path names."""
-        
-        if self.__resource_pools and from_cache:
-            return self.__resource_pools
+    def get_resource_pools(self, from_mor=None):
+        """
+        Returns a dictionary of the existing ResourcePools. keys are their
+        ManagedObjectReference objects and values their full path names.
+        @from_mor: if given, retrieves the resource pools contained within the
+            specified managed entity.
+        """
 
         def get_path(nodes, node):
             if 'parent' in node:
@@ -190,7 +193,7 @@ class VIServer:
         prop = self._retrieve_properties_traversal(
                                       property_names=["name", "resourcePool"],
                                       from_node=from_mor,
-                                      obj_type="ResourcePool")
+                                      obj_type=MORTypes.ResourcePool)
         for oc in prop:
             this_rp = {}
             this_rp["children"] = []
@@ -212,9 +215,8 @@ class VIServer:
         ret = {}
         for rp in rps.values():
             ret[rp["mor"]] = get_path(rps, rp) 
-        self.__resource_pools = ret
-
-        return self.__resource_pools
+        
+        return ret
 
     def get_vm_by_path(self, path, datacenter=None):
         """Returns an instance of VIVirtualMachine. Where its path matches
@@ -224,23 +226,24 @@ class VIServer:
             raise VIException("Must call 'connect' before invoking this method",
                             FaultTypes.NOT_CONNECTED)
         try:
-            dc = self.get_datacenters()
             dc_list = []
             if datacenter and VIMor.is_mor(datacenter):
                 dc_list.append(datacenter)
-            elif datacenter:
-                dc_list = [k for k,v in dc.items() if v==datacenter]
             else:
-                dc_list = dc.keys()
+                dc = self.get_datacenters()
+                if datacenter:
+                    dc_list = [k for k,v in dc.items() if v==datacenter]
+                else:
+                    dc_list = dc.keys()
 
             for mor_dc in dc_list:
                 request = VI.FindByDatastorePathRequestMsg()
                 mor_search_index = request.new__this(
                                            self._do_service_content.SearchIndex)
-                mor_search_index.set_attribute_type('SearchIndex')
+                mor_search_index.set_attribute_type(MORTypes.SearchIndex)
                 request.set_element__this(mor_search_index)
                 mor_datacenter = request.new_datacenter(mor_dc)
-                mor_datacenter.set_attribute_type('Datacenter')
+                mor_datacenter.set_attribute_type(MORTypes.Datacenter)
                 request.set_element_datacenter(mor_datacenter)
                 request.set_element_path(path)
                 try:
@@ -253,39 +256,40 @@ class VIServer:
         except (VI.ZSI.FaultException), e:
             raise VIApiException(e)
 
-        raise VIException("Could not find a VM with path '%s'"
-                                          % path, FaultTypes.VM_NOT_FOUND_ERROR)
+        raise VIException("Could not find a VM with path '%s'" % path, 
+                          FaultTypes.OBJECT_NOT_FOUND)
 
     def get_vm_by_name(self, name, datacenter=None):
-        """Returns an instance of VIVirtualMachine. Where its name matches
-        @name. The VM is searched througout all the datacenters, unless the
-        name of the datacenter the VM belongs to is provided."""
+        """
+        Returns an instance of VIVirtualMachine. Where its name matches @name.
+        The VM is searched throughout all the datacenters, unless the name or 
+        MOR of the datacenter the VM belongs to is provided. The first instance
+        matching @name is returned.
+        NOTE: As names might be duplicated is recommended to use get_vm_by_path
+        instead.
+        """
         if not self.__logged:
             raise VIException("Must call 'connect' before invoking this method",
                               FaultTypes.NOT_CONNECTED)
-
         try:
-            node = self._do_service_content.RootFolder
-            if datacenter is not None:
-                dc = self._get_datacenters()
-                node = dc[datacenter]
-            do_object_content = self._retrieve_properties_traversal(
-                                            property_names=['name'],
-                                            from_node=node,
-                                            obj_type='VirtualMachine')
-            if do_object_content is not None:
-                for oc in do_object_content:
-                    mor = oc.get_element_obj()
-                    properties = oc.PropSet
-                    if properties is not None:
-                        for prop in properties:
-                            if prop.Name == 'name' and prop.Val == name:
-                                return VIVirtualMachine(self, mor)
+            nodes = [None]
+            if datacenter and VIMor.is_mor(datacenter):
+                nodes = [datacenter]
+            elif datacenter:
+                dc = self.get_datacenters()
+                nodes = [k for k,v in dc.items() if v==datacenter]
+                
+            for node in nodes:
+                vms = self.__get_managed_objects_dict(MORTypes.VirtualMachine,
+                                                      from_mor=node)
+                for k,v in vms.items():
+                    if v == name:
+                        return VIVirtualMachine(self, k)
         except (VI.ZSI.FaultException), e:
             raise VIApiException(e)
 
-        raise VIException("Could not find a VM named '%s'"
-                                          % name, FaultTypes.VM_NOT_FOUND_ERROR)
+        raise VIException("Could not find a VM named '%s'" % name, 
+                          FaultTypes.OBJECT_NOT_FOUND)
 
     def get_server_type(self):
         """Returns a string containing a the server type name: E.g:
@@ -296,10 +300,8 @@ class VIServer:
         """Returns a string containing a the vSphere API version: E.g: '4.1' """
         return self.__api_version
 
-    def get_registered_vms(self, datacenter=None,
-                                cluster=None,
-                                resource_pool=None,
-                                status= None):
+    def get_registered_vms(self, datacenter=None, cluster=None, 
+                           resource_pool=None, status=None):
         """Returns a list of VM Paths. You might also filter by datacenter,
         cluster, or resource pool by providing their name or MORs. 
         if  cluster is set, datacenter is ignored, and if resource pool is set
@@ -316,114 +318,48 @@ class VIServer:
             if status:
                 property_filter.append('runtime.powerState')
             ret = []
-            node = self._do_service_content.RootFolder
+            nodes = [None]
             if resource_pool and VIMor.is_mor(resource_pool):
-                node = resource_pool
+                nodes = [resource_pool]
             elif resource_pool:
-                node = [k for k,v in self.get_resource_pools().items()
-                        if v==resource_pool][0]
+                nodes = [k for k,v in self.get_resource_pools().items()
+                         if v==resource_pool]
             elif cluster and VIMor.is_mor(cluster):
-                node = cluster
+                nodes = [cluster]
             elif cluster:
-                node = [k for k,v in self.get_clusters().items() 
-                        if v==cluster][0]
+                nodes = [k for k,v in self.get_clusters().items() 
+                        if v==cluster]
             elif datacenter and VIMor.is_mor(datacenter):
-                node = datacenter
+                nodes = [datacenter]
             elif datacenter:
-                node = [k for k,v in self.get_datacenters().items()
-                        if v==datacenter][0]
+                nodes = [k for k,v in self.get_datacenters().items()
+                        if v==datacenter]
 
-            do_object_content = self._retrieve_properties_traversal(
+            for node in nodes:
+                obj_content = self._retrieve_properties_traversal(
                                             property_names=property_filter,
                                             from_node=node,
-                                            obj_type='VirtualMachine')
-            if not do_object_content:
-                return ret
-            
-            for oc in do_object_content:
-                try:
-                    prop_set = oc.PropSet
-                except AttributeError:
+                                            obj_type=MORTypes.VirtualMachine)
+                if not obj_content:
                     continue
-                if prop_set is not None and len(prop_set)>0:
-                    if status:
-                        if prop_set[1].Val == status:
-                            ret.append(prop_set[0].Val)
-                    else:
-                        ret.append(prop_set[0].Val)
+                for obj in obj_content:
+                    try:
+                        prop_set = obj.PropSet
+                    except AttributeError:
+                        continue
+                    ppath = None
+                    pstatus = None
+                    for item in prop_set:
+                        if item.Name == 'config.files.vmPathName':
+                            ppath = item.Val
+                        elif item.Name == 'runtime.powerState':
+                            pstatus = item.Val
+                    if (status and status==pstatus) or not status:
+                        ret.append(ppath)
             return ret
 
         except (VI.ZSI.FaultException), e:
             raise VIApiException(e)
-
-    def get_objects_tree(self, from_mor=None):
-        """Returns a nested dictionary of all the VC/ESX Tree from RootFolder
-        up to the VM level (datacenters, datastores, hosts, folders,
-        resource pools, VMs). The return dictionary has this format:
-        {'key'      : mor id string,
-         'mor'      : Managed object reference,
-         'type'     : Managed object Type,
-         'name'     : Managed object name
-         'children' : [list of dictionaries of this same structure]
-        }"""
-
-        def build_node(object_content, object_list, done_list):
-            try:
-                mor = object_content.Obj
-                properties = object_content.PropSet
-                this = done_list.get(str(mor), None)
-                if this is None:
-                    node = {}
-                    node['key'] = str(mor)
-                    node['mor'] = mor
-                    node['type'] = str(mor.get_attribute_type())
-                    node['children'] = []
-                    node['name'] = None
-                    parent = None
-
-                    if properties is not None:
-                        for prop in properties:
-                            if prop is not None and prop.Name == 'name':
-                                node['name'] = prop.Val
-                            if prop is not None and prop.Name == 'parent':
-                                parent = prop.Val
-                    if parent is not None:
-                        #recursive call
-                        parent_node = build_node(object_list[parent],
-                                                 object_list, done_list)
-                        parent_node['children'].append(node)
-                    else:
-                        done_list['main'] = node
-                    done_list[str(mor)] = node
-
-                    return node
-                else:
-                    return this
-            except (VI.ZSI.FaultException), e:
-                raise VIApiException(e)
-
-        if not self.__logged:
-            raise VIException("Must call 'connect' before invoking this method",
-                              FaultTypes.NOT_CONNECTED)
-
-        do_object_content = self._retrieve_properties_traversal(
-                                              property_names=['name', 'parent'],
-                                              from_node=from_mor)
-        tree = {}
-        try:
-            if do_object_content is not None:
-                done_list = {}
-                object_list = {}
-                for oc in do_object_content:
-                    mor = oc.Obj
-                    object_list[str(mor)] = oc
-
-                for oc in do_object_content:
-                    build_node(oc, object_list, done_list)
-                tree = done_list['main']
-        except (VI.ZSI.FaultException), e:
-            raise VIApiException(e)
-        return tree
 
     def _get_object_properties(self, mor, property_names=[], get_all=False):
         """Returns the properties defined in property_names (or all if get_all
@@ -436,10 +372,10 @@ class VIServer:
 
             request, request_call = self._retrieve_property_request()
 
-            mor_property_collector = request.new__this(
+            _this = request.new__this(
                                      self._do_service_content.PropertyCollector)
-            mor_property_collector.set_attribute_type('PropertyCollector')
-            request.set_element__this(mor_property_collector)
+            _this.set_attribute_type(MORTypes.PropertyCollector)
+            request.set_element__this(_this)
 
             do_PropertyFilterSpec_specSet = request.new_specSet()
 
@@ -464,7 +400,9 @@ class VIServer:
             do_PropertyFilterSpec_specSet.set_element_objectSet(objects_set)
             request.set_element_specSet([do_PropertyFilterSpec_specSet])
 
-            return request_call(request)
+            ret = request_call(request)
+            if ret and isinstance(ret, list):
+                return ret[0]
 
         except (VI.ZSI.FaultException), e:
             raise VIApiException(e)
@@ -537,18 +475,24 @@ class VIServer:
         @from_node (RootFolder by default). Returns the corresponding
         objectContent data object."""
         try:
-            if from_node is None:
+            if not from_node:
                 from_node = self._do_service_content.RootFolder
-
-
+            
+            elif isinstance(from_node, tuple) and len(from_node) == 2:
+                from_node = VIMor(from_node[0], from_node[1])
+            elif not VIMor.is_mor(from_node):
+                raise VIException("from_node must be a MOR object or a "
+                                  "(<str> mor_id, <str> mor_type) tuple",
+                                  FaultTypes.PARAMETER_ERROR)
+            
             request, request_call = self._retrieve_property_request()
 
 
-            mor_property_collector = request.new__this(
+            _this = request.new__this(
                                      self._do_service_content.PropertyCollector)
-            mor_property_collector.set_attribute_type('PropertyCollector')
+            _this.set_attribute_type(MORTypes.PropertyCollector)
 
-            request.set_element__this(mor_property_collector)
+            request.set_element__this(_this)
             do_PropertyFilterSpec_specSet = request.new_specSet()
 
             props_set = []
@@ -567,12 +511,12 @@ class VIServer:
             #Recurse through all ResourcePools
             rp_to_rp = VI.ns0.TraversalSpec_Def('rpToRp').pyclass()
             rp_to_rp.set_element_name('rpToRp')
-            rp_to_rp.set_element_type('ResourcePool')
+            rp_to_rp.set_element_type(MORTypes.ResourcePool)
             rp_to_rp.set_element_path('resourcePool')
             rp_to_rp.set_element_skip(False)
             rp_to_vm= VI.ns0.TraversalSpec_Def('rpToVm').pyclass()
             rp_to_vm.set_element_name('rpToVm')
-            rp_to_vm.set_element_type('ResourcePool')
+            rp_to_vm.set_element_type(MORTypes.ResourcePool)
             rp_to_vm.set_element_path('vm')
             rp_to_vm.set_element_skip(False)
 
@@ -586,7 +530,7 @@ class VIServer:
             #Traversal through resource pool branch
             cr_to_rp = VI.ns0.TraversalSpec_Def('crToRp').pyclass()
             cr_to_rp.set_element_name('crToRp')
-            cr_to_rp.set_element_type('ComputeResource')
+            cr_to_rp.set_element_type(MORTypes.ComputeResource)
             cr_to_rp.set_element_path('resourcePool')
             cr_to_rp.set_element_skip(False)
             spec_array_computer_resource =[do_ObjectSpec_objSet.new_selectSet(),
@@ -598,14 +542,14 @@ class VIServer:
             #Traversal through host branch
             cr_to_h = VI.ns0.TraversalSpec_Def('crToH').pyclass()
             cr_to_h.set_element_name('crToH')
-            cr_to_h.set_element_type('ComputeResource')
+            cr_to_h.set_element_type(MORTypes.ComputeResource)
             cr_to_h.set_element_path('host')
             cr_to_h.set_element_skip(False)
 
             #Traversal through hostFolder branch
             dc_to_hf = VI.ns0.TraversalSpec_Def('dcToHf').pyclass()
             dc_to_hf.set_element_name('dcToHf')
-            dc_to_hf.set_element_type('Datacenter')
+            dc_to_hf.set_element_type(MORTypes.Datacenter)
             dc_to_hf.set_element_path('hostFolder')
             dc_to_hf.set_element_skip(False)
             spec_array_datacenter_host = [do_ObjectSpec_objSet.new_selectSet()]
@@ -615,7 +559,7 @@ class VIServer:
             #Traversal through vmFolder branch
             dc_to_vmf = VI.ns0.TraversalSpec_Def('dcToVmf').pyclass()
             dc_to_vmf.set_element_name('dcToVmf')
-            dc_to_vmf.set_element_type('Datacenter')
+            dc_to_vmf.set_element_type(MORTypes.Datacenter)
             dc_to_vmf.set_element_path('vmFolder')
             dc_to_vmf.set_element_skip(False)
             spec_array_datacenter_vm = [do_ObjectSpec_objSet.new_selectSet()]
@@ -625,7 +569,7 @@ class VIServer:
             #Traversal through datastore branch
             dc_to_ds = VI.ns0.TraversalSpec_Def('dcToDs').pyclass()
             dc_to_ds.set_element_name('dcToDs')
-            dc_to_ds.set_element_type('Datacenter')
+            dc_to_ds.set_element_type(MORTypes.Datacenter)
             dc_to_ds.set_element_path('datastore')
             dc_to_ds.set_element_skip(False)
             spec_array_datacenter_ds = [do_ObjectSpec_objSet.new_selectSet()]
@@ -635,7 +579,7 @@ class VIServer:
             #Recurse through all hosts
             h_to_vm = VI.ns0.TraversalSpec_Def('hToVm').pyclass()
             h_to_vm.set_element_name('hToVm')
-            h_to_vm.set_element_type('HostSystem')
+            h_to_vm.set_element_type(MORTypes.HostSystem)
             h_to_vm.set_element_path('vm')
             h_to_vm.set_element_skip(False)
             spec_array_host_vm = [do_ObjectSpec_objSet.new_selectSet()]
@@ -645,7 +589,7 @@ class VIServer:
             #Recurse through the folders
             visit_folders = VI.ns0.TraversalSpec_Def('visitFolders').pyclass()
             visit_folders.set_element_name('visitFolders')
-            visit_folders.set_element_type('Folder')
+            visit_folders.set_element_type(MORTypes.Folder)
             visit_folders.set_element_path('childEntity')
             visit_folders.set_element_skip(False)
             spec_array_visit_folders = [do_ObjectSpec_objSet.new_selectSet(),
@@ -701,11 +645,10 @@ class VIServer:
                 token = retval.Token
                 request = VI.ContinueRetrievePropertiesExRequestMsg()
 
-                mor_prop_collector = request.new__this(
-                                 self._do_service_content.PropertyCollector)
-                mor_prop_collector.set_attribute_type('PropertyCollector')
-
-                request.set_element__this(mor_prop_collector)
+                _this = request.new__this(
+                                     self._do_service_content.PropertyCollector)
+                _this.set_attribute_type(MORTypes.PropertyCollector)
+                request.set_element__this(_this)
                 request.set_element_token(token)
                 retval = self._proxy.ContinueRetrievePropertiesEx(
                                                   request)._returnval
@@ -748,20 +691,17 @@ class VIServer:
         else:
             self._proxy.binding.ResetHeaders()
             
-    def __get_managed_objects_dict(self, original, mo_type, from_cache):
+    def __get_managed_objects_dict(self, mo_type, from_mor):
         """Returns a dictionary of managed objects and their names"""
-        if original and from_cache:
-            return original
         
-        obj_content = self._retrieve_properties_traversal(
-                      property_names=['name'], obj_type=mo_type)
+        content = self._retrieve_properties_traversal(property_names=['name'],
+                                                      from_node=from_mor,
+                                                      obj_type=mo_type)
+        if not content: return {}
         try:
-            original = dict([(o.Obj, o.PropSet[0].Val)
-                            for o in obj_content])
+            return dict([(o.Obj, o.PropSet[0].Val) for o in content])
         except VI.ZSI.FaultException, e:
             raise VIApiException(e)
-        return original
-    
     
     #---- DEPRECATED METHODS ----#    
             
@@ -773,7 +713,7 @@ class VIServer:
                       "'get_clusters' instead",
                       DeprecationWarning)
         
-        ret = self.get_clusters(from_cache=from_cache)
+        ret = self.get_clusters()
         return dict([(v,k) for k,v in ret.items()])
     
     def _get_datacenters(self, from_cache=True):
@@ -784,7 +724,7 @@ class VIServer:
                       "'get_datacenters' instead",
                       DeprecationWarning)
 
-        ret = self.get_datacenters(from_cache=from_cache)
+        ret = self.get_datacenters()
         return dict([(v,k) for k,v in ret.items()])
     
     def _get_resource_pools(self, from_cache=True):
@@ -795,5 +735,5 @@ class VIServer:
                       "'get_resource_pools' instead",
                       DeprecationWarning)
 
-        ret = self.get_resource_pools(from_cache=from_cache)
+        ret = self.get_resource_pools()
         return dict([(v,k) for k,v in ret.items()])     
