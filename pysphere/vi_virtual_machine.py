@@ -400,7 +400,7 @@ class VIVirtualMachine:
     #-- CLONE VM --#
     #--------------#
     def clone(self, name, sync_run=True, folder=None, resourcepool=None,
-              power_on=True):
+              power_on=True, template=False):
         """Clones this Virtual Machine
         @name: name of the new virtual machine
         @folder: name of the folder that will contain the new VM, if not set
@@ -453,7 +453,7 @@ class VIVirtualMachine:
                 pool.set_attribute_type(resourcepool.get_attribute_type())
                 location.set_element_pool(pool)
             spec.set_element_location(location)
-            spec.set_element_template(False)
+            spec.set_element_template(template)
             request.set_element_spec(spec)
             task = self._server._proxy.CloneVM_Task(request)._returnval
             vi_task = VITask(task, self._server)
