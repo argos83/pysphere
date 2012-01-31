@@ -96,7 +96,8 @@ class PerformanceManager:
                                                    interval_id=refresh_rate)
         counter_obj = self.query_perf_counter([metric.CounterId 
                                                for metric in metrics])
-        return dict([(c.NameInfo.Key, c.Key) for c in counter_obj]) 
+        return dict([("%s.%s" % (c.GroupInfo.Key, c.NameInfo.Key), c.Key)
+                     for c in counter_obj]) 
         
 
     def get_entity_statistic(self, entity, counters):
