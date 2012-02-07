@@ -1,0 +1,1 @@
+Rename 'config.ini.dist' to 'config'ini' and set your connection settings.
