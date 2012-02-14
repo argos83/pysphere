@@ -32,9 +32,11 @@ from resources.vi_exception import VIException, VIApiException, FaultTypes
 import datetime
 
 class EntityStatistics:
-    def __init__(self, mor, counter_name, counter_desc, group_name, group_desc,
-                 unit_name, unit_desc, instance_name, value,time_stamp):
+    def __init__(self, mor, counter_key, counter_name, counter_desc, group_name,
+                 group_desc, unit_name, unit_desc, instance_name, value,
+                 time_stamp):
         self.mor = mor
+        self.counter_key = counter_key
         self.counter = counter_name
         self.description = counter_desc
         self.group = group_name
@@ -46,15 +48,15 @@ class EntityStatistics:
         self.time = time_stamp
 
     def __str__(self):
-        return "MOR: %s\nCounter: %s\nGroup: %s\nDescription: %s\n" \
+        return "MOR: %s\nCounter: %s (%s)\nGroup: %s\nDescription: %s\n" \
                "Instance: %s\nValue: %s\nUnit: %s\nTime: %s" % (
-                                       self.mor, self.counter, 
+                                       self.mor, self.counter, self.counter_key, 
                                        self.group_description, self.description,
                                        self.instance, self.value,
                                        self.unit_description, self.time)
 
     def __repr__(self):
-        return"<%(mor)s:%(counter)s:%(description)s" \
+        return"<%(mor)s:%(counter)s(%(counter_key)s):%(description)s" \
               ":%(instance)s:%(value)s:%(unit)s:%(time)s>" % self.__dict__
 
 class PerformanceManager:
@@ -142,9 +144,9 @@ class PerformanceManager:
             instance_name = str(stat.Id.Instance)
             stat_value = str(stat.Value[0])
             date_now = datetime.datetime.utcnow()
-            statistics.append(EntityStatistics(entity,cname, cdesc, gname,
-                                               gdesc, uname, udesc,                                           
-                                               instance_name, stat_value,
+            statistics.append(EntityStatistics(entity, stat.Id.CounterId, cname,
+                                               cdesc, gname, gdesc, uname, 
+                                               udesc, instance_name, stat_value,
                                                date_now))
         return statistics
 
