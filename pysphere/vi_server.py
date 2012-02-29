@@ -145,7 +145,7 @@ class VIServer:
         @from_mor: if given, retrieves the hosts contained within the specified 
             managed entity.
         """
-        return self.__get_managed_objects_dict(MORTypes.HostSystem, from_mor)
+        return self._get_managed_objects(MORTypes.HostSystem, from_mor)
     
 
     def get_datastores(self, from_mor=None):
@@ -155,7 +155,7 @@ class VIServer:
         @from_mor: if given, retrieves the datastores contained within the 
             specified managed entity.
         """
-        return self.__get_managed_objects_dict(MORTypes.Datastore, from_mor)
+        return self._get_managed_objects(MORTypes.Datastore, from_mor)
         
     def get_clusters(self, from_mor=None):
         """
@@ -164,7 +164,7 @@ class VIServer:
         @from_mor: if given, retrieves the clusters contained within the 
             specified managed entity.
         """
-        return self.__get_managed_objects_dict(MORTypes.ClusterComputeResource,
+        return self._get_managed_objects(MORTypes.ClusterComputeResource,
                                                from_mor)
 
     def get_datacenters(self, from_mor=None):
@@ -174,7 +174,7 @@ class VIServer:
         @from_mor: if given, retrieves the datacenters contained within the 
             specified managed entity.
         """
-        return self.__get_managed_objects_dict(MORTypes.Datacenter, from_mor)           
+        return self._get_managed_objects(MORTypes.Datacenter, from_mor)           
 
     def get_resource_pools(self, from_mor=None):
         """
@@ -280,7 +280,7 @@ class VIServer:
                 nodes = [k for k,v in dc.items() if v==datacenter]
                 
             for node in nodes:
-                vms = self.__get_managed_objects_dict(MORTypes.VirtualMachine,
+                vms = self._get_managed_objects(MORTypes.VirtualMachine,
                                                       from_mor=node)
                 for k,v in vms.items():
                     if v == name:
@@ -691,7 +691,7 @@ class VIServer:
         else:
             self._proxy.binding.ResetHeaders()
             
-    def __get_managed_objects_dict(self, mo_type, from_mor):
+    def _get_managed_objects(self, mo_type, from_mor=None):
         """Returns a dictionary of managed objects and their names"""
         
         content = self._retrieve_properties_traversal(property_names=['name'],

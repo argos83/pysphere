@@ -410,8 +410,10 @@ class VIVirtualMachine:
         @power_on: If the new VM will be powered on after being created
         @sync_run: if True (default) waits for the task to finish, and returns
         a VIVirtualMachine instance with the new VM (raises an exception if the
-        task didn't succeed). If sync_run is set to False the task is started an
-        a VITask instance is returned
+        task didn't succeed). If sync_run is set to False the task is started
+        and a VITask instance is returned
+        @template: Specifies whether or not the new virtual machine should be 
+        marked as a template. 
         """
         try:
             #get the folder to create the VM
