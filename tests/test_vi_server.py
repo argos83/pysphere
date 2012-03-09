@@ -4,7 +4,7 @@ import ConfigParser
 from unittest import TestCase
 
 from pysphere import VIServer, VIProperty, MORTypes, VIException, FaultTypes, \
-                     VMPowerState
+                     VMPowerState, ToolsStatus
 
 class VIServerTest(TestCase):
 
@@ -129,6 +129,20 @@ class VIServerTest(TestCase):
             vm = self.server.get_vm_by_path(random.choice(vms))
             assert vm.get_status(basic_status=True) == VMPowerState.SUSPENDED
 
+    def test_get_registered_vms_advanced_filters(self):
+        vms = self.server.get_registered_vms(advanced_filters={
+                                'runtime.powerState':'poweredOn',
+                                'guest.toolsRunningStatus':'guestToolsRunning',
+                                'guest.toolsVersionStatus':['guestToolsCurrent',
+                                                        'guestToolsNeedUpgrade']
+                                            })
+        random.shuffle(vms)
+        for vm in vms[:10]:
+            vm = self.server.get_vm_by_path(random.choice(vms))
+            assert vm.get_status(basic_status=True) == VMPowerState.POWERED_ON
+            assert vm.get_tools_status() in [ToolsStatus.RUNNING,
+                                             ToolsStatus.RUNNING_OLD]
+        
     def test_is_connected(self):
         assert self.server.is_connected()
 

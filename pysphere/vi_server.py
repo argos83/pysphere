@@ -301,22 +301,36 @@ class VIServer:
         return self.__api_version
 
     def get_registered_vms(self, datacenter=None, cluster=None, 
-                           resource_pool=None, status=None):
-        """Returns a list of VM Paths. You might also filter by datacenter,
-        cluster, or resource pool by providing their name or MORs. 
-        if  cluster is set, datacenter is ignored, and if resource pool is set
-        both, datacenter and cluster are ignored.
-        You can also filter by VM power state, by setting status to one of this
-        values: 'poweredOn', 'poweredOff', 'suspended'
+                           resource_pool=None, status=None,
+                           advanced_filters=None):
+        """Returns a list of VM Paths.
+        @datacenter: name or MORs to filter VMs registered in that datacenter
+        @cluster: name or MORs to filter VMs registered in that cluster. If set
+            datacenter is ignored.
+        @resource_pool: name path or MORs to filter VMs registered in that
+            resource pool. If set, both, @datacenter and @cluster are ignored.
+        @status: either 'poweredOn', 'poweredOff', or 'suspended' to retrieve
+            only VMs in that power state
+        @advanced_filters: dictionary
         """
 
         if not self.__logged:
             raise VIException("Must call 'connect' before invoking this method",
                               FaultTypes.NOT_CONNECTED)
         try:
-            property_filter= ['config.files.vmPathName']
+            
+            if not advanced_filters or not isinstance(advanced_filters, dict):
+                advanced_filters={}
+                
             if status:
-                property_filter.append('runtime.powerState')
+                advanced_filters['runtime.powerState'] = [status]
+        
+            property_filter = advanced_filters.keys()
+            
+            if not 'config.files.vmPathName' in property_filter:
+                property_filter.insert(0, 'config.files.vmPathName')
+            
+            #Root MOR filters
             ret = []
             nodes = [None]
             if resource_pool and VIMor.is_mor(resource_pool):
@@ -347,14 +361,22 @@ class VIServer:
                         prop_set = obj.PropSet
                     except AttributeError:
                         continue
+                    
                     ppath = None
-                    pstatus = None
+                    filter_match = dict([(k, False) 
+                                         for k in advanced_filters.keys()])
+                    
                     for item in prop_set:
                         if item.Name == 'config.files.vmPathName':
                             ppath = item.Val
-                        elif item.Name == 'runtime.powerState':
-                            pstatus = item.Val
-                    if (status and status==pstatus) or not status:
+                        elif item.Name in filter_match:
+                            expected = advanced_filters.get(item.Name)
+                            if not isinstance(expected, list):
+                                expected = [expected]
+                            if item.Val in expected:
+                                filter_match[item.Name] = True
+        
+                    if all(filter_match.values()):
                         ret.append(ppath)
             return ret
 
