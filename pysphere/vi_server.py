@@ -27,6 +27,8 @@
 #
 #--
 
+import sys
+
 from resources import VimService_services as VI
 
 from resources.vi_exception import *
@@ -46,9 +48,18 @@ class VIServer:
         #By default impersonate the VI Client to be accepted by Virtual Server
         self.__initial_headers = {"User-Agent":"VMware VI Client/5.0.0"}
 
-    def connect(self, host, user, password, trace_file=None):
-        """Opens a session to a VC/ESX server with the given credentials. You
-        might provide a file name to write the soap conversation for debuging"""
+    def connect(self, host, user, password, trace_file=None, sock_timeout=None):
+        """Opens a session to a VC/ESX server with the given credentials:
+        @host: is the server's hostname or address. If the web service uses
+        another protocol or port than the default, you must use the full
+        service URL (e.g. http://myhost:8888/sdk)
+        @user: username to connect with
+        @password: password to authenticate the session
+        @trace_file: (optional) a file path to log SOAP requests and responses
+        @sock_timeout: (optional) only for python >= 2.6, sets the connection
+        timeout for sockets, in python 2.5 you'll  have to use 
+        socket.setdefaulttimeout(secs) to change the global setting.
+        """
 
         self.__user = user
         self.__password = password
@@ -67,12 +78,15 @@ class VIServer:
         try:
             #get the server's proxy
             locator = VI.VimServiceLocator()
-            if not trace_file:
-                self._proxy = locator.getVimPortType(url=server_url)
-            else:
+            args = {'url':server_url}
+            if trace_file:
                 trace=open(trace_file, 'w')
-                self._proxy = locator.getVimPortType(url=server_url,
-                                                     tracefile=trace)
+                args['tracefile'] = trace
+            if sock_timeout and sys.version_info >= (2, 6):
+                args['transdict'] = {'timeout':sock_timeout}
+
+            self._proxy = locator.getVimPortType(**args)
+            
             for header, value in self.__initial_headers.items():
                 self._proxy.binding.AddHeader(header, value)
                 
