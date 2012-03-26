@@ -6,14 +6,13 @@
 import threading
 
 from pysphere.ZSI import _copyright, _seqtypes, ParsedSoap, SoapWriter, TC, ZSI_SCHEMA_URI,\
-    EvaluateException, FaultFromFaultMessage, _child_elements, _attrs, _find_arraytype,\
+    FaultFromFaultMessage, _child_elements, _find_arraytype,\
     _find_type, _get_idstr, _get_postvalue_from_absoluteURI, FaultException, WSActionException,\
     UNICODE_ENCODING
 from pysphere.ZSI.auth import AUTH
-from pysphere.ZSI.TC import AnyElement, AnyType, String, TypeCode, _get_global_element_declaration,\
-    _get_type_definition
+from pysphere.ZSI.TC import String
 from pysphere.ZSI.TCcompound import Struct
-import base64, httplib, Cookie, types, time, urlparse
+import base64, httplib, Cookie, time, urlparse
 from pysphere.ZSI.address import Address
 from pysphere.ZSI.wstools.logging import getLogger as _GetLogger
 _b64_encode = base64.encodestring
@@ -67,7 +66,7 @@ class _NamedParamCaller:
         # Pull out arguments that Send() uses
         kw = {}
         for key in [ 'auth_header', 'nsdict', 'requesttypecode', 'soapaction' ]:
-            if params.has_key(key):
+            if key in params:
                 kw[key] = params[key]
                 del params[key]
 
@@ -136,7 +135,7 @@ class _Binding:
         #thread local data
         self.local = threading.local()
 
-        if kw.has_key('auth'):
+        if 'auth' in kw:
             self.SetAuth(*kw['auth'])
         else:
             self.SetAuth(AUTH.none)
@@ -234,13 +233,13 @@ class _Binding:
                  encodingStyle=kw.get('encodingStyle'),)
 
         requesttypecode = kw.get('requesttypecode')
-        if kw.has_key('_args'): #NamedParamBinding
+        if '_args' in kw: #NamedParamBinding
             tc = requesttypecode or TC.Any(pname=opname, aslist=False)
             sw.serialize(kw['_args'], tc)
         elif not requesttypecode:
             tc = getattr(obj, 'typecode', None) or TC.Any(pname=opname, aslist=False)
             try:
-                if type(obj) in _seqtypes:
+                if isinstance(obj, _seqtypes):
                     obj = dict(map(lambda i: (i.typecode.pname,i), obj))
             except AttributeError:
                 # can't do anything but serialize this in a SOAP:Array
@@ -288,7 +287,7 @@ class _Binding:
                 raise RuntimeError, 'must specify transport or url startswith https/http'
 
         # Send the request.
-        if issubclass(transport, httplib.HTTPConnection) is False:
+        if not issubclass(transport, httplib.HTTPConnection):
             raise TypeError, 'transport must be a HTTPConnection'
 
         soapdata = str(sw)
@@ -313,7 +312,6 @@ class _Binding:
             self.local.h.putheader("Content-Type", 'text/xml; charset="%s"' %UNICODE_ENCODING)
         else:
             #we have attachment
-            contentType =  "multipart/related; "
             self.local.h.putheader("Content-Type" , "multipart/related; boundary=\"" + self.local.boundary + "\"; start=\"" + self.local.startCID + '\"; type="text/xml"')
         self.__addcookies()
 
@@ -326,8 +324,8 @@ class _Binding:
             val = _b64_encode(self.auth_user + ':' + self.auth_pass) \
                         .replace("\012", "")
             self.local.h.putheader('Authorization', 'Basic ' + val)
-        elif self.auth_style == AUTH.httpdigest and not headers.has_key('Authorization') \
-            and not headers.has_key('Expect'):
+        elif self.auth_style == AUTH.httpdigest and not 'Authorization' in headers \
+            and not 'Expect' in headers:
             def digest_auth_cb(response):
                 self.SendSOAPDataHTTPDigestAuth(response, soapdata, url, request_uri, soapaction, **kw)
                 self.http_callbacks[401] = None
@@ -356,15 +354,13 @@ class _Binding:
                 'Auth style(%d) does not support requested digest authorization.' %self.auth_style
 
         from pysphere.ZSI.digest_auth import fetch_challenge,\
-            generate_response,\
-            build_authorization_arg,\
-            dict_fetch
+            generate_response, build_authorization_arg
 
         chaldict = fetch_challenge( response.getheader('www-authenticate') )
-        if dict_fetch(chaldict,'challenge','').lower() == 'digest' and \
-            dict_fetch(chaldict,'nonce',None) and \
-            dict_fetch(chaldict,'realm',None) and \
-            dict_fetch(chaldict,'qop',None):
+        if chaldict.get('challenge','').lower() == 'digest' and \
+            chaldict.get('nonce') and \
+            chaldict.get('realm') and \
+            chaldict.get('qop'):
             authdict = generate_response(chaldict,
                 request_uri, self.auth_user, self.auth_pass, method='POST')
             headers = {\
@@ -544,17 +540,13 @@ class Binding(_Binding):
         self.ReceiveSOAP(**kw)
         ps = self.local.ps
         tp = _find_type(ps.body_root)
-        isarray = ((type(tp) in (tuple,list) and tp[1] == 'Array') or _find_arraytype(ps.body_root))
+        isarray = ((isinstance(tp, _seqtypes) and tp[1] == 'Array') or _find_arraytype(ps.body_root))
         if self.typesmodule is None or isarray:
             return _Binding.Receive(self, replytype, **kw)
 
         if ps.IsAFault():
             msg = FaultFromFaultMessage(ps)
             raise FaultException(msg)
-
-        tc = replytype
-        if hasattr(replytype, 'typecode'):
-            tc = replytype.typecode
 
         #Ignore response wrapper
         reply = {}

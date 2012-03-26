@@ -66,7 +66,6 @@ class BasicLogger(ILogger):
         '''Write convenience function; writes strings.
         '''
         for s in args: self.out.write(s)
-        event = ''.join(*args)
 
 
 _LoggerClass = BasicLogger
@@ -141,10 +140,10 @@ class GLRecord(dict):
         """
         """
         from cStringIO import StringIO
-        s = StringIO(); n = " "
+        s = StringIO()
         reserved = self.reserved; omitname = self.omitname; levels = self.levels
 
-        for k in ( list(filter(lambda i: self.has_key(i), reserved)) + 
+        for k in ( list(filter(lambda i: i in self, reserved)) + 
             list(filter(lambda i: i not in reserved, self.keys()))
         ):
             v = self[k]
@@ -191,7 +190,6 @@ def gridLog(**kw):
     GRIDLOG_ON   -- turn grid logging on
     GRIDLOG_DEST -- provide URL destination
     """
-    import os
 
     if not bool( int(os.environ.get('GRIDLOG_ON', 0)) ):
         return
@@ -205,7 +203,7 @@ def gridLog(**kw):
         scheme = url[:url.find('://')]
         send = GLRegistry[scheme]
         send( url, str(GLRecord(**kw)), )
-    except Exception, ex:
+    except Exception:
         print >>sys.stderr, "*** gridLog failed -- %s" %(str(kw))
 
 
@@ -247,9 +245,6 @@ def setBasicLoggerDEBUG():
     setLoggerClass(BasicLogger)
     BasicLogger.setLevel(DEBUG)
 
-def setLoggerClass(loggingClass):
-    '''Set Logging Class.
-    '''
 
 def setLoggerClass(loggingClass):
     '''Set Logging Class.

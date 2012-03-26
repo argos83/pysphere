@@ -7,6 +7,8 @@ from pysphere.ZSI import TC
 from pysphere.ZSI import _copyright
 import base64, os
 
+from pysphere.ZSI import ZSI_SCHEMA_URI
+
 _b64_decode = base64.decodestring
 
 # Typecode to parse a ZSI BasicAuth header.

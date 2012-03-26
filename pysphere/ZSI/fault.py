@@ -3,22 +3,20 @@
 '''Faults.
 '''
 
-from pysphere.ZSI import _copyright, _children, _child_elements, \
-        _get_idstr, _stringtypes, _seqtypes, _Node, SoapWriter, ZSIException
+from pysphere.ZSI import _copyright, _get_idstr, _seqtypes, SoapWriter, ZSIException
 
 from pysphere.ZSI.TCcompound import Struct
-from pysphere.ZSI.TC import QName, URI, String, XMLString, AnyElement, UNBOUNDED
+from pysphere.ZSI.TC import QName, URI, String, AnyElement, UNBOUNDED
 
 from pysphere.ZSI.wstools.Namespaces import SOAP, ZSI_SCHEMA_URI
-from pysphere.ZSI.wstools.c14n import Canonicalize
 from pysphere.ZSI.TC import ElementDeclaration
 
-import traceback, cStringIO as StringIO
+import traceback
 
 
 class Detail:
-    def __init__(self, any=None):
-        self.any = any
+    def __init__(self, _any=None):
+        self.any = _any
 
 Detail.typecode = Struct(Detail, [AnyElement(aname='any',minOccurs=0, maxOccurs="unbounded",processContents="lax")], pname='detail', minOccurs=0)
 
@@ -132,9 +130,9 @@ class Fault(ZSIException):
 
     def __init__(self, code, string,
                 actor=None, detail=None, headerdetail=None):
-        if detail is not None and type(detail) not in _seqtypes:
+        if detail is not None and not isinstance(detail, _seqtypes):
             detail = (detail,)
-        if headerdetail is not None and type(headerdetail) not in _seqtypes:
+        if headerdetail is not None and not isinstance(headerdetail, _seqtypes):
             headerdetail = (headerdetail,)
         self.code, self.string, self.actor, self.detail, self.headerdetail = \
                 code, string, actor, detail, headerdetail
@@ -228,7 +226,7 @@ def FaultFromException(ex, inheader, tb=None, actor=None):
     if tb:
         try:
             lines = '\n'.join(['%s:%d:%s' % (name, line, func)
-                        for name, line, func, text in traceback.extract_tb(tb)])
+                        for name, line, func, _ in traceback.extract_tb(tb)])
         except:
             pass
         else:

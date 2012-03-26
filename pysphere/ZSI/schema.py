@@ -3,8 +3,7 @@
 """XML Schema support
 """
 
-from pysphere.ZSI import _copyright, _seqtypes, _find_type, _get_element_nsuri_name, EvaluateException
-from pysphere.ZSI.wstools.Namespaces import SCHEMA, SOAP
+from pysphere.ZSI import _copyright, _find_type, _get_element_nsuri_name, EvaluateException
 from pysphere.ZSI.wstools.Utility import SplitQName
 
 
@@ -112,33 +111,24 @@ class SchemaInstanceType(type):
             return type.__new__(cls,classname,bases,classdict)
 
         if ElementDeclaration in bases:
-            if classdict.has_key('schema') is False  or classdict.has_key('literal') is False:
+            if not 'schema' in classdict or not 'literal' in  classdict:
                 raise AttributeError, 'ElementDeclaration must define schema and literal attributes'
 
             key = (classdict['schema'],classdict['literal'])
-            if SchemaInstanceType.elements.has_key(key):
+            if key in SchemaInstanceType.elements:
                 return SchemaInstanceType.elements[key]
 
             # create global element declaration
             ged = SchemaInstanceType.elements[key] = type.__new__(cls,classname,bases,classdict)
 
-            # TODO: Maybe I want access to all registrants??
-            #
-            #if classdict.has_key('substitutionGroup'):
-            #    sub = classdict.has_key('substitutionGroup')
-            #    if not SchemaInstanceType.substitution_registry.has_key(sub):
-            #        SchemaInstanceType.substitution_registry[sub] = [ged]
-            #    else:
-            #        SchemaInstanceType.substitution_registry[sub].append(ged)
-
             return ged
 
         if TypeDefinition in bases:
-            if classdict.has_key('type') is None:
+            if not 'type' in classdict:
                 raise AttributeError, 'TypeDefinition must define type attribute'
 
             key = classdict['type']
-            if SchemaInstanceType.types.has_key(key) is False:
+            if not key in SchemaInstanceType.types:
                 SchemaInstanceType.types[key] = type.__new__(cls,classname,bases,classdict)
             return SchemaInstanceType.types[key]
 
@@ -216,7 +206,7 @@ class ElementDeclaration:
         if (nsuri,ncname) != (self.schema,self.literal):
             # allow slop with the empty namespace
             if not nsuri and not self.schema and ncname == self.literal:
-                 return True
+                return True
 
             return False
 
@@ -246,7 +236,7 @@ class ElementDeclaration:
 
         if (ncname == self.pname) and (nsuri == self.nspname or
            (not nsuri and not self.nspname)):
-             return typecode
+                return typecode
 
         return
 
@@ -329,7 +319,7 @@ class _Mirage:
         self.__kw = kw
         self.minOccurs,self.maxOccurs,self.nillable = minOccurs,maxOccurs,nillable
         self.nspname,self.pname,self.aname = None,pname,aname
-        if type(self.pname) in (tuple,list):
+        if isinstance(self.pname, (tuple,list)):
             self.nspname,self.pname = pname
 
         return self
@@ -409,9 +399,9 @@ class _GetPyobjWrapper:
             what -- typecode describing the data
         """
         d = cls.types_dict
-        if type(pyobj) is bool:
+        if isinstance(pyobj, bool):
             pyclass = d[int]
-        elif d.has_key(type(pyobj)) is True:
+        elif type(pyobj) in  d:
             pyclass = d[type(pyobj)]
         else:
             raise TypeError,\

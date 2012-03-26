@@ -8,9 +8,9 @@ import exceptions, sys, optparse, os, warnings, traceback
 from os.path import isfile, join, split
 
 #from operator import xor
-import pysphere.ZSI
-from ConfigParser import ConfigParser
-from pysphere.ZSI.generate.wsdl2python import WriteServiceModule, ServiceDescription as wsdl2pyServiceDescription
+#import pysphere.ZSI
+
+from pysphere.ZSI.generate.wsdl2python import WriteServiceModule
 from pysphere.ZSI.wstools import WSDLTools, XMLSchema
 from pysphere.ZSI.wstools.logging import setBasicLoggerDEBUG
 from pysphere.ZSI.generate import containers, utility
@@ -93,11 +93,6 @@ def wsdl2py(args=None):
                   callback_kwargs={},
                   help="EXPERIMENTAL: recursion error solution, lazy evalution of typecodes")
 
-    # Use Twisted
-    op.add_option("-w", "--twisted",
-                  action="store_true", dest='twisted', default=False,
-                  help="generate a twisted.web client/server, dependencies python>=2.4, Twisted>=2.0.0, TwistedWeb>=0.5.0")
-
     op.add_option("-o", "--output-dir",
                   action="store", dest="output_dir", default=".", type="string",
                   help="save files in directory")
@@ -119,7 +114,7 @@ def wsdl2py(args=None):
 
     if len(args) != 1:
         print>>sys.stderr, 'Expecting a file/url as argument (WSDL).'
-        sys.exit(os.EX_USAGE)
+        sys.exit()
 
     location = args[0]
     if options.schema is True:
@@ -197,15 +192,6 @@ def wsdl2py(args=None):
 
 def _wsdl2py(options, wsdl):
 
-    if options.twisted:
-        from pysphere.ZSI.generate.containers import ServiceHeaderContainer
-        try:
-            ServiceHeaderContainer.imports.remove('from pysphere.ZSI import client')
-        except ValueError:
-            pass
-        ServiceHeaderContainer.imports.append('from pysphere.ZSI.twisted import client')
-
-
     if options.simple_naming:
         # Use a different client suffix
         # WriteServiceModule.client_module_suffix = "_client"
@@ -247,18 +233,12 @@ def _wsdl2dispatch(options, wsdl):
     """TOOD: Remove ServiceContainer stuff, and replace with WSGI.
     """
     kw = dict()
-    if options.twisted:
-        from pysphere.ZSI.twisted.WSresource import WSResource
-        kw['base'] = WSResource
-        ss = ServiceDescription(**kw)
-        if options.address is True:
-            raise RuntimeError, 'WS-Address w/twisted currently unsupported, edit the "factory" attribute by hand'
+    
+    # TODO: make all this handler arch
+    if options.address is True:
+        ss = ServiceDescriptionWSA()
     else:
-        # TODO: make all this handler arch
-        if options.address is True:
-            ss = ServiceDescriptionWSA()
-        else:
-            ss = ServiceDescription(**kw)
+        ss = ServiceDescription(**kw)
 
     ss.fromWSDL(wsdl)
     file_name = ss.getServiceModuleName()+'.py'
@@ -284,12 +264,9 @@ class _XMLSchemaAdapter:
 
 
 
-import os, pydoc, sys, warnings, inspect
-import  os.path
+import pydoc, inspect
 
 from distutils import log
-from distutils.command.build_py import build_py
-from distutils.util import convert_path
 
 #from setuptools import find_packages
 #from setuptools import Command
@@ -328,13 +305,13 @@ def _writedoc(doc, thing, forceload=0):
     """Write HTML documentation to a file in the current directory.
     """
     try:
-        object, name = pydoc.resolve(thing, forceload)
-        page = pydoc.html.page(pydoc.describe(object), pydoc.html.document(object, name))
+        obj, name = pydoc.resolve(thing, forceload)
+        page = pydoc.html.page(pydoc.describe(obj), pydoc.html.document(obj, name))
         fname = os.path.join(doc, name + '.html')
-        file = open(fname, 'w')
-        file.write(page)
-        file.close()
-    except (ImportError, pydoc.ErrorDuringImport), value:
+        fd = open(fname, 'w')
+        fd.write(page)
+        fd.close()
+    except (ImportError, pydoc.ErrorDuringImport):
         traceback.print_exc(sys.stderr)
     else:
         return name + '.html'
@@ -344,14 +321,14 @@ def _writeclientdoc(doc, thing, forceload=0):
     """Write HTML documentation to a file in the current directory.
     """
     docmodule = pydoc.HTMLDoc.docmodule
-    def strongarm(self, object, name=None, mod=None, *ignored):
-        result = docmodule(self, object, name, mod, *ignored)
+    def strongarm(self, obj, name=None, mod=None, *ignored):
+        result = docmodule(self, obj, name, mod, *ignored)
 
         # Grab all the aliases to pyclasses and create links.
         nonmembers = []
         push = nonmembers.append
-        for k,v in inspect.getmembers(object, inspect.isclass):
-            if inspect.getmodule(v) is not object and getattr(v,'typecode',None) is not None:
+        for k,v in inspect.getmembers(obj, inspect.isclass):
+            if inspect.getmodule(v) is not obj and getattr(v,'typecode',None) is not None:
                 push('<a href="%s.html">%s</a>: pyclass alias<br/>' %(v.__name__,k))
 
         result += self.bigsection('Aliases', '#ffffff', '#eeaa77', ''.join(nonmembers))
@@ -359,12 +336,12 @@ def _writeclientdoc(doc, thing, forceload=0):
 
     pydoc.HTMLDoc.docmodule = strongarm
     try:
-        object, name = pydoc.resolve(thing, forceload)
-        page = pydoc.html.page(pydoc.describe(object), pydoc.html.document(object, name))
+        obj, name = pydoc.resolve(thing, forceload)
+        page = pydoc.html.page(pydoc.describe(obj), pydoc.html.document(obj, name))
         name = os.path.join(doc, name + '.html')
-        file = open(name, 'w')
-        file.write(page)
-        file.close()
+        fd = open(name, 'w')
+        fd.write(page)
+        fd.close()
     except (ImportError, pydoc.ErrorDuringImport), value:
         log.debug(str(value))
 
@@ -374,7 +351,7 @@ def _writetypesdoc(doc, thing, forceload=0):
     """Write HTML documentation to a file in the current directory.
     """
     try:
-        object, name = pydoc.resolve(thing, forceload)
+        obj, name = pydoc.resolve(thing, forceload)
         name = os.path.join(doc, name + '.html')
     except (ImportError, pydoc.ErrorDuringImport), value:
         log.debug(str(value))
@@ -421,12 +398,12 @@ def _writetypesdoc(doc, thing, forceload=0):
                 continue
 
 
-    def strongarm(self, object, name=None, mod=None, funcs={}, classes={}, *ignored):
+    def strongarm(self, obj, name=None, mod=None, funcs={}, classes={}, *ignored):
         """Produce HTML documentation for a class object."""
-        realname = object.__name__
+        realname = obj.__name__
         name = name or realname
-        bases = object.__bases__
-        object, name = pydoc.resolve(object, forceload)
+        bases = obj.__bases__
+        obj, name = pydoc.resolve(obj, forceload)
         contents = []
         push = contents.append
         if name == realname:
@@ -440,15 +417,15 @@ def _writetypesdoc(doc, thing, forceload=0):
         if bases:
             parents = []
             for base in bases:
-                parents.append(self.classlink(base, object.__module__))
+                parents.append(self.classlink(base, obj.__module__))
             title = title + '(%s)' % pydoc.join(parents, ', ')
 
-        doc = self.markup(pydoc.getdoc(object), self.preformat, funcs, classes, mdict)
+        doc = self.markup(pydoc.getdoc(obj), self.preformat, funcs, classes, mdict)
         doc = doc and '<tt>%s<br>&nbsp;</tt>' % doc
-        for iname,iclass in cdict[name]:
+        for iname,_ in cdict[name]:
             fname = fdict[(name,iname)]
 
-            if elements_dict.has_key(iname):
+            if iname in elements_dict:
                 push('class <a href="%s">%s</a>: element declaration typecode<br/>'\
                     %(fname,iname))
                 pyclass = elements_dict[iname]
@@ -457,7 +434,7 @@ def _writetypesdoc(doc, thing, forceload=0):
                     push('<li><a href="%s">pyclass</a>: instances serializable to XML<br/></li>'\
                         %elements_dict[iname])
                     push('</ul>')
-            elif types_dict.has_key(iname):
+            elif iname in types_dict:
                 push('class <a href="%s">%s</a>: type definition typecode<br/>' %(fname,iname))
                 pyclass = types_dict[iname]
                 if pyclass is not None:
@@ -475,10 +452,10 @@ def _writetypesdoc(doc, thing, forceload=0):
     pydoc.HTMLDoc.docclass = strongarm
 
     try:
-        page = pydoc.html.page(pydoc.describe(object), pydoc.html.document(object, name))
-        file = open(name, 'w')
-        file.write(page)
-        file.close()
+        page = pydoc.html.page(pydoc.describe(obj), pydoc.html.document(obj, name))
+        fd = open(name, 'w')
+        fd.write(page)
+        fd.close()
     except (ImportError, pydoc.ErrorDuringImport), value:
         log.debug(str(value))
 
@@ -490,9 +467,9 @@ def _writebrokedoc(doc, ex, name, forceload=0):
     try:
         fname = os.path.join(doc, name + '.html')
         page = pydoc.html.page(pydoc.describe(ex), pydoc.html.document(str(ex), fname))
-        file = open(fname, 'w')
-        file.write(page)
-        file.close()
+        fd = open(fname, 'w')
+        fd.write(page)
+        fd.close()
     except (ImportError, pydoc.ErrorDuringImport), value:
         log.debug(str(value))
 
@@ -503,7 +480,6 @@ def _writepydoc(doc, *args):
     doc -- destination directory for documents
     *args -- modules run thru pydoc
     """
-    ok = True
     if not os.path.isdir(doc):
         os.makedirs(doc)
 

@@ -40,7 +40,7 @@ class ParsedSoap:
     '''
     defaultReaderClass = DefaultReader
 
-    def __init__(self, input, readerclass=None, keepdom=False,
+    def __init__(self, _input, readerclass=None, keepdom=False,
     trailers=False, resolver=None,  envelope=True, **kw):
         """Initialize.
         Keyword arguments:
@@ -58,11 +58,11 @@ class ParsedSoap:
 
         try:
             self.reader = self.readerclass()
-            if type(input) in _stringtypes:
-                self.dom = self.reader.fromString(input)
+            if isinstance(_input, _stringtypes):
+                self.dom = self.reader.fromString(_input)
             else:
-                self.dom = self.reader.fromStream(input)
-        except Exception, e:
+                self.dom = self.reader.fromStream(_input)
+        except Exception:
             # Is this in the header?  Your guess is as good as mine.
             #raise ParseException("Can't parse document (" + \
             #    str(e.__class__) + "): " + str(e), 0)
@@ -216,12 +216,12 @@ class ParsedSoap:
                 raise ParseException('Unqualified element "' + \
                         n.nodeName + '" in ' + name, inheader, elt, self.dom)
 
-    def _check_for_pi_nodes(self, list, inheader):
+    def _check_for_pi_nodes(self, _list, inheader):
         '''Raise an exception if any of the list descendants are PI nodes.
         '''
-        list = list[:]
-        while list:
-            elt = list.pop()
+        _list = _list[:]
+        while _list:
+            elt = _list.pop()
             t = elt.nodeType
             if t == _Node.PROCESSING_INSTRUCTION_NODE:
                 raise ParseException('Found processing instruction "<?' + \
@@ -230,7 +230,7 @@ class ParsedSoap:
             elif t == _Node.DOCUMENT_TYPE_NODE:
                 raise ParseException('Found DTD', inheader,
                         elt.parentNode, self.dom)
-            list += _children(elt)
+            _list += _children(elt)
 
     def Backtrace(self, elt):
         '''Return a human-readable "backtrace" from the document root to
@@ -251,16 +251,16 @@ class ParsedSoap:
         if e: return e
         # Do a breadth-first search, in the data first.  Most likely
         # to find multi-ref targets shallow in the data area.
-        list = self.data_elements[:] + [self.body_root]
-        if headers: list.extend(self.header_elements)
-        while list:
-            e = list.pop()
+        _list = self.data_elements[:] + [self.body_root]
+        if headers: _list.extend(self.header_elements)
+        while _list:
+            e = _list.pop()
             if e.nodeType == _Node.ELEMENT_NODE:
                 nodeid = _find_id(e)
                 if nodeid:
                     self.id_cache[nodeid] = e
                     if nodeid == frag: return e
-            list += _children(e)
+            _list += _children(e)
         raise EvaluateException("""Can't find node for HREF '%s'""" % href,
                 self.Backtrace(elt))
 
@@ -269,7 +269,7 @@ class ParsedSoap:
         if not r:
             raise EvaluateException('No resolver for "' + uri + '"')
         try:
-            if type(uri) == types.UnicodeType: uri = str(uri)
+            if isinstance(uri, unicode): uri = str(uri)
             retval = r(uri, tc, self, **keywords)
         except Exception, e:
             raise EvaluateException("""Can't resolve '""" + uri + "' (" + \
@@ -322,7 +322,7 @@ class ParsedSoap:
     def Parse(self, how):
         '''Parse the message.
         '''
-        if type(how) == types.ClassType: how = how.typecode
+        if isinstance(how, type): how = how.typecode
         return how.parse(self.body_root, self)
 
     def WhatMustIUnderstand(self):
@@ -354,7 +354,6 @@ class ParsedSoap:
                 raise EvaluateException, 'not supporting <any> as child of soapenc:Header'
 
             v = []
-            occurs = 0
             namespaceURI,tagName = what.nspname,what.pname
             for j,c_elt in [ (j, c[j]) for j in crange if c[j] ]:
                 prefix,name = SplitQName(c_elt.tagName)
@@ -366,7 +365,7 @@ class ParsedSoap:
                 v.append(pyobj)
                 c[j] = None
             if what.minOccurs > len(v) > what.maxOccurs:
-               raise EvaluateException, 'number of occurances(%d) doesnt fit constraints (%d,%s)'\
+                raise EvaluateException, 'number of occurances(%d) doesnt fit constraints (%d,%s)'\
                    %(len(v),what.minOccurs,what.maxOccurs)
             if what.maxOccurs == 1:
                 if len(v) == 0: v = None

@@ -145,7 +145,6 @@ accompanying credits file.
 ##
 ##  Stuff imported from elsewhere.
 from xml.dom import Node as _Node
-import types as _types
 
 ##
 ##  Public constants.
@@ -154,10 +153,10 @@ UNICODE_ENCODING = 'utf-8'
 
 ##
 ##  Not public constants.
-_inttypes = [ _types.IntType, _types.LongType ]
-_floattypes = [ _types.FloatType ]
-_seqtypes = [ _types.TupleType, _types.ListType ]
-_stringtypes = [ _types.StringType, _types.UnicodeType ]
+_inttypes = (int, long)
+_floattypes = (float, )
+_seqtypes = (tuple, list)
+_stringtypes = ( str, unicode )
 
 ##
 ##  Low-level DOM oriented utilities; useful for typecode implementors.
@@ -240,7 +239,6 @@ def _resolve_prefix(celt, prefix):
       celt -- element node
       prefix -- xmlns:prefix, or empty str or None
     '''
-    namespace = None
     while _is_element(celt):
         if prefix:
             namespaceURI = _find_xmlns_prefix(celt, prefix)
@@ -305,7 +303,7 @@ def _get_postvalue_from_absoluteURI(url):
     cache = _get_postvalue_from_absoluteURI.cache
     path = cache.get(url, '')
     if not path:
-        scheme,authpath = url.split('://')
+        _,authpath = url.split('://')
         s = authpath.split('/', 1)
         if len(s) == 2: path = '/%s' %s[1]
         if len(cache) > _get_postvalue_from_absoluteURI.MAXLEN:cache.clear()
@@ -326,9 +324,9 @@ class ParseException(ZSIException):
     '''Exception raised during parsing.
     '''
 
-    def __init__(self, str, inheader, elt=None, dom=None):
+    def __init__(self, _str, inheader, elt=None, dom=None):
         Exception.__init__(self)
-        self.str, self.inheader, self.trace = str, inheader, None
+        self.str, self.inheader, self.trace = _str, inheader, None
         if elt and dom:
             self.trace = _backtrace(elt, dom)
 
@@ -345,9 +343,9 @@ class EvaluateException(ZSIException):
     '''Exception raised during data evaluation (serialization).
     '''
 
-    def __init__(self, str, trace=None):
+    def __init__(self, _str, trace=None):
         Exception.__init__(self)
-        self.str, self.trace = str, trace
+        self.str, self.trace = _str, trace
 
     def __str__(self):
         if self.trace:
@@ -411,7 +409,7 @@ TC.RegisterType(TC.gYear, minOccurs=0, nillable=False)
 TC.RegisterType(TC.gMonthDay, minOccurs=0, nillable=False)
 TC.RegisterType(TC.gDay, minOccurs=0, nillable=False)
 TC.RegisterType(TC.gTime, minOccurs=0, nillable=False)
-TC.RegisterType(TC.Apache.Map, minOccurs=0, nillable=False)
+TC.RegisterType(TC.Apache.Map , minOccurs=0, nillable=False)
 
 ##
 ## Register Wrappers for builtin types.

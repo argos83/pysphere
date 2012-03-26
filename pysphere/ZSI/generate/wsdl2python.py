@@ -7,19 +7,21 @@
 
 # $Id$
 
-import os, sys, warnings
+import sys, warnings
 from pysphere.ZSI import _get_idstr
 from pysphere.ZSI.wstools.logging import getLogger as _GetLogger
-from pysphere.ZSI.wstools import WSDLTools
-from pysphere.ZSI.wstools.WSDLTools import SoapAddressBinding,\
-    SoapBodyBinding, SoapBinding,MimeContentBinding,\
-    HttpUrlEncodedBinding
-from pysphere.ZSI.wstools.XMLSchema import SchemaReader, ElementDeclaration, SchemaError
-from pysphere.ZSI.typeinterpreter import BaseTypeInterpreter
-from pysphere.ZSI.generate import WsdlGeneratorError, Wsdl2PythonError
-from pysphere.ZSI.generate.containers import *
-from pysphere.ZSI.generate import utility
-from pysphere.ZSI.generate.utility import NamespaceAliasDict as NAD
+from pysphere.ZSI.wstools.XMLSchema import SchemaReader
+from pysphere.ZSI.generate.containers import WsdlGeneratorError, NAD, \
+TypesHeaderContainer, ServiceHeaderContainer, ServiceLocatorContainer, \
+BindingDescription, Wsdl2PythonError, ServiceOperationContainer, \
+ServiceRPCLiteralMessageContainer, WSDLTools, \
+ServiceDocumentLiteralMessageContainer, ServiceRPCEncodedMessageContainer, \
+NamespaceClassHeaderContainer, NamespaceClassFooterContainer, \
+ElementLocalComplexTypeContainer, ElementSimpleTypeContainer, \
+ElementGlobalDefContainer, ElementLocalSimpleTypeContainer, \
+RestrictionContainer, UnionContainer, ListContainer, ComplexTypeContainer, \
+ComplexTypeSimpleContentContainer, ComplexTypeComplexContentContainer
+
 from pysphere.ZSI.generate.utility import GetModuleBaseNameFromWSDL
 
 """
@@ -159,7 +161,7 @@ class WriteServiceModule:
             tns = schema.getTargetNamespace()
             self.logger.debug('Register schema(%s) -- TNS(%s)'\
                 %(_get_idstr(schema), tns),)
-            if self.usedNamespaces.has_key(tns) is False:
+            if not tns in self.usedNamespaces:
                 self.usedNamespaces[tns] = []
             self.usedNamespaces[tns].append(schema)
             NAD.add(tns)
@@ -169,7 +171,7 @@ class WriteServiceModule:
         for k,v in SchemaReader.namespaceToSchema.items():
             self.logger.debug('Register schema(%s) -- TNS(%s)'\
                 %(_get_idstr(v), k),)
-            if self.usedNamespaces.has_key(k) is False:
+            if k not in self.usedNamespaces:
                 self.usedNamespaces[k] = []
             self.usedNamespaces[k].append(v)
             NAD.add(k)

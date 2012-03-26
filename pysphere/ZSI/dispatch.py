@@ -3,11 +3,13 @@
 '''Simple CGI dispatching.
 '''
 
-import types, os, sys
+import os, sys
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
-from pysphere.ZSI import *
+from pysphere.ZSI import TC, EvaluateException, FaultFromZSIException, \
+    SoapWriter, Fault, FaultFromException, UNICODE_ENCODING, ParsedSoap, \
+    ParseException
 from pysphere.ZSI import _child_elements, _copyright, _seqtypes, _find_arraytype, _find_type, resolvers
-from pysphere.ZSI.auth import _auth_tc, AUTH, ClientBinding
+from pysphere.ZSI.auth import ClientBinding
 
 
 # Client binding information is stored in a global. We provide an accessor
@@ -105,20 +107,20 @@ def _Dispatch(ps, modules, SendResponse, SendFault, nsdict={}, typesmodule=None,
             result = handler(**kwargs)
             aslist = False
             # make sure data is wrapped, try to make this a Struct
-            if type(result) in _seqtypes:
-                 for o in result:
-                     aslist = hasattr(result, 'typecode')
-                     if aslist: break
-            elif type(result) is not dict:
-                 aslist = not hasattr(result, 'typecode')
-                 result = (result,)
+            if isinstance(result,_seqtypes):
+                for _ in result:
+                    aslist = hasattr(result, 'typecode')
+                    if aslist: break
+            elif not isinstance(result, dict):
+                aslist = not hasattr(result, 'typecode')
+                result = (result,)
 
             tc = TC.Any(pname=what+'Response', aslist=aslist)
         else:
             # if this is an Array, call handler with list
             # if this is an Struct, call handler with dict
             tp = _find_type(ps.body_root)
-            isarray = ((type(tp) in (tuple,list) and tp[1] == 'Array') or _find_arraytype(ps.body_root))
+            isarray = ((isinstance(tp, (tuple,list)) and tp[1] == 'Array') or _find_arraytype(ps.body_root))
             data = _child_elements(ps.body_root)
             tc = TC.Any()
             if isarray and len(data) == 0:

@@ -10,9 +10,8 @@
 # $Id$
 
 import re
-from pysphere.ZSI import EvaluateException
-from pysphere.ZSI.TCcompound import Struct
-from pysphere.ZSI.generate import WsdlGeneratorError, Wsdl2PythonError
+
+from pysphere.ZSI.generate import WsdlGeneratorError
 from pysphere.ZSI.wstools.Utility import SplitQName
 from pysphere.ZSI.wstools.Namespaces import SCHEMA
 
@@ -41,14 +40,14 @@ class NamespaceAliasDict:
     alias_list = []
 
     def add(cls, ns):
-        if cls.alias_dict.has_key(ns):
+        if ns in cls.alias_dict:
             return
         cls.alias_dict[ns] = (Namespace2ModuleName(ns), '%s' % namespace_name(cls,ns))
         cls.alias_list.append(ns)
     add = classmethod(add)
 
     def getModuleName(cls, ns):
-        if cls.alias_dict.has_key(ns):
+        if ns in cls.alias_dict:
             return cls.alias_dict[ns][0]
 
         msg = 'failed to find import for schema "%s"'%ns +\
@@ -61,7 +60,7 @@ class NamespaceAliasDict:
     getModuleName = classmethod(getModuleName)
 
     def getAlias(cls, ns):
-        if cls.alias_dict.has_key(ns):
+        if ns in cls.alias_dict:
             return cls.alias_dict[ns][1]
 
         msg = 'failed to find import for schema "%s"'%ns +\
@@ -138,20 +137,20 @@ def GetPartsSubNames(args, wsdl):
                         argElementType = arg.element[1]
                         if str(argElementType) == str(i.content.name):
                             argSubnames = []
-			    # I'm not sure when the name attribute was dropped
-			    # but at some point, or in some circumstance it's not
-			    # there, but instead a ref attribute is there which is
-		     	    # tuple of (namespace, name). This hack fixes things,
-			    # but I'm not sure why this happens or has happened.
-			    # IRJ - 2005-05-25
+                # I'm not sure when the name attribute was dropped
+                # but at some point, or in some circumstance it's not
+                # there, but instead a ref attribute is there which is
+                    # tuple of (namespace, name). This hack fixes things,
+                # but I'm not sure why this happens or has happened.
+                # IRJ - 2005-05-25
                             if i.content.mgContent != None:
                                 for c in i.content.mgContent:
                                     nValue = "None"
                                     if c.isWildCard():
                                         nValue="any"
-                                    elif c.attributes.has_key("name"):
+                                    elif "name" in c.attributes:
                                         nValue = c.attributes["name"]
-                                    elif c.attributes.has_key("ref"):
+                                    elif "ref" in c.attributes:
                                         nValue = c.attributes["ref"][1]
                                     argSubnames.append(nValue)
 

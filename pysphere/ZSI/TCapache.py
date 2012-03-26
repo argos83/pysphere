@@ -53,7 +53,7 @@ class _Map(TypeCode):
 
         # soap href attribute
         unique = self.unique or kw.get('unique', False)
-        if unique is False and sw.Known(orig or pyobj):
+        if unique is False and sw.Known(pyobj):
             self.set_attribute_href(el, objid)
             return None
 
@@ -71,7 +71,6 @@ class _Map(TypeCode):
         else:
             for k,v in pyobj.items():
                 self.tc.serialize(el, sw, {'key': k, 'value': v}, name='item')
-
 
 class AttachmentRef(SimpleType):
     '''Type code for Attachment. This attachment will work only with axis...
@@ -119,7 +118,6 @@ class AttachmentRef(SimpleType):
             #do nothing
             #this should not happen
             pass
-
 
 Apache.Map = _Map
 

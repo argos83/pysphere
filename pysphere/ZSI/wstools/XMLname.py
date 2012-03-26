@@ -15,7 +15,7 @@ Version 0.9.0
 
 ident = "$Id$"
 
-from re import *
+from re import sub
 
 
 def _NCNameChar(x):

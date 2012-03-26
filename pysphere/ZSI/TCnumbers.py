@@ -2,7 +2,7 @@
 # $Header$
 '''Typecodes for numbers.
 '''
-import types
+
 from pysphere.ZSI import _copyright, _inttypes, _floattypes, _seqtypes, \
         EvaluateException
 from pysphere.ZSI.TC import TypeCode, Integer, Decimal
@@ -55,14 +55,14 @@ class Iint(Integer):
     '''
     type = (SCHEMA.XSD3, "int")
     parselist = [ (None, "int") ]
-    seriallist = [ types.IntType ]
+    seriallist = [ int ]
 
 class Ilong(Integer):
     '''Signed 64bit value.
     '''
     type = (SCHEMA.XSD3, "long")
     parselist = [(None, "long")]
-    seriallist = [ types.LongType ]
+    seriallist = [ long ]
 
 class InegativeInteger(Integer):
     '''Value less than zero.
@@ -107,14 +107,14 @@ class IEnumeration(Integer):
         Integer.__init__(self, pname, **kw)
         self.choices = choices
         t = type(choices)
-        if t in _seqtypes:
+        if isinstance(choices, _seqtypes):
             self.choices = tuple(choices)
         elif TypeCode.typechecks:
             raise TypeError(
                 'Enumeration choices must be list or sequence, not ' + str(t))
         if TypeCode.typechecks:
             for c in self.choices:
-                if type(c) not in _inttypes:
+                if not isinstance(c, _inttypes):
                     raise TypeError('Enumeration choice "' +
                             str(c) + '" is not an integer')
 
@@ -128,8 +128,7 @@ class IEnumeration(Integer):
 
     def serialize(self, elt, sw, pyobj, name=None, orig=None, **kw):
         if pyobj not in self.choices:
-            raise EvaluateException('Value not in int enumeration list',
-                    ps.Backtrace(elt))
+            raise EvaluateException('Value not in int enumeration list')
         Integer.serialize(self, elt, sw, pyobj, name=name, orig=orig, **kw)
 
 
@@ -138,7 +137,7 @@ class FPfloat(Decimal):
     '''
     type = (SCHEMA.XSD3, "float")
     parselist = [ (None, "float") ]
-    seriallist = [ types.FloatType ]
+    seriallist = [ float ]
 
 class FPdouble(Decimal):
     '''IEEE 64bit floating point value.
@@ -155,14 +154,14 @@ class FPEnumeration(FPfloat):
         FPfloat.__init__(self, pname, **kw)
         self.choices = choices
         t = type(choices)
-        if t in _seqtypes:
+        if isinstance(choices, _seqtypes):
             self.choices = tuple(choices)
         elif TypeCode.typechecks:
             raise TypeError(
                 'Enumeration choices must be list or sequence, not ' + str(t))
         if TypeCode.typechecks:
             for c in self.choices:
-                if type(c) not in _floattypes:
+                if not isinstance(c, _floattypes):
                     raise TypeError('Enumeration choice "' +
                             str(c) + '" is not floating point number')
 
@@ -176,8 +175,7 @@ class FPEnumeration(FPfloat):
 
     def serialize(self, elt, sw, pyobj, name=None, orig=None, **kw):
         if pyobj not in self.choices:
-            raise EvaluateException('Value not in int enumeration list',
-                    ps.Backtrace(elt))
+            raise EvaluateException('Value not in int enumeration list')
         Decimal.serialize(self, elt, sw, pyobj, name=name, orig=orig, **kw)
 
 

@@ -15,7 +15,7 @@
 
 ident = "$Id$"
 
-import string, socket, select, errno
+import socket, select, errno
 
 WSAEINVAL = getattr(errno, 'WSAEINVAL', 10022)
 
@@ -58,7 +58,7 @@ class TimeoutSocket:
                 errno.EINPROGRESS, errno.EALREADY, errno.EWOULDBLOCK
                 ):
                 raise
-            r,w,e = select.select([],[sock],[],timeout)
+            _,w,_ = select.select([],[sock],[],timeout)
             if w:
                 try:
                     apply(sock.connect, addr)
@@ -77,7 +77,7 @@ class TimeoutSocket:
         total = len(data)
         next = 0
         while 1:
-            r, w, e = select.select([],[self.sock], [], self.timeout)
+            _, w, _ = select.select([],[self.sock], [], self.timeout)
             if w:
                 buff = data[next:next + 8192]
                 sent = self.sock.send(buff, flags)
@@ -106,7 +106,7 @@ class TimeoutSocket:
             self.sock.close()
 
     def read(self, n=-1):
-        if not isinstance(n, type(1)):
+        if not isinstance(n, int):
             n = -1
         if n >= 0:
             k = len(self._rbuf)
@@ -139,7 +139,6 @@ class TimeoutSocket:
         return "".join(L)
 
     def readline(self, limit=-1):
-        data = ""
         i = self._rbuf.find('\n')
         while i < 0 and not (0 < limit <= len(self._rbuf)):
             new = self.recv(self.buffsize)
@@ -155,18 +154,18 @@ class TimeoutSocket:
 
     def readlines(self, sizehint = 0):
         total = 0
-        list = []
+        l = []
         while 1:
             line = self.readline()
             if not line: break
-            list.append(line)
+            l.append(line)
             total += len(line)
             if sizehint and total >= sizehint:
                 break
-        return list
+        return l
 
-    def writelines(self, list):
-        self.send(''.join(list))
+    def writelines(self, l):
+        self.send(''.join(l))
 
     def write(self, data):
         self.send(data)

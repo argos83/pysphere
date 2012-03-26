@@ -3,8 +3,8 @@
 '''Typecodes for dates and times.
 '''
 
-from pysphere.ZSI import _copyright, _floattypes, _inttypes, _get_idstr, EvaluateException
-from pysphere.ZSI.TC import TypeCode, SimpleType
+from pysphere.ZSI import _copyright, _floattypes, _inttypes, EvaluateException
+from pysphere.ZSI.TC import SimpleType
 from pysphere.ZSI.wstools.Namespaces import SCHEMA
 import operator, re, time as _time
 from time import mktime as _mktime, localtime as _localtime, gmtime as _gmtime
@@ -171,10 +171,9 @@ class Duration(SimpleType):
         return retval
 
     def get_formatted_content(self, pyobj):
-        if type(pyobj) in _floattypes or type(pyobj) in _inttypes:
+        if isinstance(pyobj, _floattypes) or isinstance(pyobj, _inttypes):
             pyobj = _gmtime(pyobj)
 
-        d = {}
         pyobj = tuple(pyobj)
         if 1 in map(lambda x: x < 0, pyobj[0:6]):
             pyobj = map(abs, pyobj)
@@ -205,8 +204,7 @@ class Gregorian(SimpleType):
             raise EvaluateException('Bad Gregorian: %s' %text, ps.Backtrace(elt))
         try:
             retval = _dict_to_tuple(m.groupdict())
-        except ValueError, e:
-            #raise EvaluateException(str(e))
+        except ValueError:
             raise
 
         if self.fix_timezone:
@@ -219,7 +217,7 @@ class Gregorian(SimpleType):
         return retval
 
     def get_formatted_content(self, pyobj):
-        if type(pyobj) in _floattypes or type(pyobj) in _inttypes:
+        if isinstance(pyobj, _floattypes) or isinstance(pyobj, _inttypes):
             pyobj = _gmtime(pyobj)
 
         if self.fix_timezone:

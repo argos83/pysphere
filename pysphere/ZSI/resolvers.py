@@ -5,7 +5,6 @@
 
 from pysphere.ZSI import _copyright, _child_elements, EvaluateException, TC
 import multifile, mimetools, urllib
-from base64 import decodestring as b64decode
 import cStringIO as StringIO
 
 
@@ -105,7 +104,7 @@ class MIMEResolver:
     def GetSOAPPart(self):
         '''Get the SOAP body part.
         '''
-        head, part = self.parts[0]
+        _, part = self.parts[0]
         return StringIO.StringIO(part.getvalue())
 
     def get(self, uri):
@@ -113,10 +112,10 @@ class MIMEResolver:
         '''
         if uri.startswith('cid:'):
             # Content-ID, so raise exception if not found.
-            head, part = self.id_dict[uri[4:]]
+            _, part = self.id_dict[uri[4:]]
             return StringIO.StringIO(part.getvalue())
-        if self.loc_dict.has_key(uri):
-            head, part = self.loc_dict[uri]
+        if uri in self.loc_dict:
+            _, part = self.loc_dict[uri]
             return StringIO.StringIO(part.getvalue())
         return None
 
@@ -140,7 +139,7 @@ class MIMEResolver:
         return self.Opaque(uri, tc, ps, **keywords)
 
     def __getitem__(self, cid):
-        head, body = self.id_dict[cid]
+        _, body = self.id_dict[cid]
         newio = StringIO.StringIO(body.getvalue())
         return newio
 

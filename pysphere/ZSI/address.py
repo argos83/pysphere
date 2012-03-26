@@ -4,10 +4,8 @@
 ###########################################################################
 
 import time, urlparse, socket
-from pysphere.ZSI import _seqtypes, EvaluateException, WSActionException
-from pysphere.ZSI.TC import AnyElement, AnyType, TypeCode
+from pysphere.ZSI import EvaluateException, WSActionException
 from pysphere.ZSI.schema import GED, GTD, _has_type_definition
-from pysphere.ZSI.TCcompound import ComplexType
 from pysphere.ZSI.wstools.Namespaces import WSA_LIST
 
 
@@ -67,7 +65,6 @@ class Address(object):
         value = pyobj._Address
         if value != self._addressTo:
             scheme,netloc,path,query,fragment = urlparse.urlsplit(value)
-            hostport = netloc.split(':')
             schemeF,netlocF,pathF,queryF,fragmentF = urlparse.urlsplit(self._addressTo)
             if scheme==schemeF and path==pathF and query==queryF and fragment==fragmentF:
                 netloc = netloc.split(':') + ['80']
@@ -118,7 +115,7 @@ class Address(object):
                     typecodes.append(typecode)
             else:
                 pass
-        except EvaluateException, ex:
+        except EvaluateException:
             raise EvaluateException, \
                 'To use ws-addressing register typecodes for namespace(%s)' %self.wsAddressURI
         return typecodes
@@ -189,7 +186,7 @@ class Address(object):
             if ReferenceProperties is not None:
                 for v in getattr(ReferenceProperties, '_any', ()):
                     if not hasattr(v,'typecode'):
-                       raise EvaluateException, '<any> element, instance missing typecode attribute'
+                        raise EvaluateException, '<any> element, instance missing typecode attribute'
 
                     pyobjs.append(v)
 
@@ -246,6 +243,3 @@ class Address(object):
         self._from = pyobjs[(namespaceURI,elements[3])]
         self._relatesTo = pyobjs[(namespaceURI,elements[4])]
 
-
-
-if __name__ == '__main__': print _copyright

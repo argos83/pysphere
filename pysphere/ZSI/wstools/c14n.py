@@ -49,17 +49,16 @@ or
 
 import string
 from xml.dom import Node
-try:
-    from xml.ns import XMLNS
-except:
-    class XMLNS:
-        BASE = "http://www.w3.org/2000/xmlns/"
-        XML = "http://www.w3.org/XML/1998/namespace"
+
 try:
     import cStringIO
     StringIO = cStringIO
 except ImportError:
     import StringIO
+
+class XMLNS:
+    BASE = "http://www.w3.org/2000/xmlns/"
+    XML = "http://www.w3.org/XML/1998/namespace"
 
 _attrs = lambda E: (E.attributes and E.attributes.values()) or []
 _children = lambda E: E.childNodes or []
@@ -327,9 +326,6 @@ class _implementation:
                 if  _in_subset(self.subset, a):     #020925 Test to see if attribute node in subset
                     other_attrs.append(a)
                     
-#                # TODO: exclusive, might need to define xmlns:prefix here
-#                if not inclusive and a.prefix is not None and not ns_rendered.has_key('xmlns:%s' %a.prefix):
-#                    ns_local['xmlns:%s' %a.prefix] = ??
 
             #add local xml:foo attributes to ancestor's xml:foo attributes
             xml_attrs.update(xml_attrs_local)
@@ -344,8 +340,8 @@ class _implementation:
                 else:
                     prefix = 'xmlns'
                     
-                if not ns_rendered.has_key(prefix) and not ns_local.has_key(prefix):
-                    if not ns_unused_inherited.has_key(prefix):
+                if prefix not in ns_rendered and prefix not in ns_local:
+                    if prefix not in ns_unused_inherited:
                         raise RuntimeError,\
                             'For exclusive c14n, unable to map prefix "%s" in %s' %(
                             prefix, node)

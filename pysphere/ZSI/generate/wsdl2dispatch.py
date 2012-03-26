@@ -1,16 +1,15 @@
 #!/usr/bin/env python
 import inspect
 from cStringIO import StringIO
-import pysphere.ZSI, string, sys, getopt, urlparse, types, warnings
+import sys, urlparse, warnings
 from pysphere.ZSI.wstools import WSDLTools
-from pysphere.ZSI.ServiceContainer import ServiceSOAPBinding, SimpleWSResource, WSAResource
+from pysphere.ZSI.ServiceContainer import ServiceSOAPBinding, WSAResource
 
 from pysphere.ZSI.generate import WsdlGeneratorError, Wsdl2PythonError
 from pysphere.ZSI.generate.utility import TextProtect, GetModuleBaseNameFromWSDL, \
-    NCName_to_ClassName, GetPartsSubNames, TextProtectAttributeName
+    NCName_to_ClassName, TextProtectAttributeName
 from pysphere.ZSI.generate.containers import BindingDescription
-from pysphere.ZSI.generate.wsdl2python import MessageWriter, WriteServiceModule,\
-    MessageTypecodeContainer, SchemaDescription
+from pysphere.ZSI.generate.wsdl2python import MessageWriter, WriteServiceModule
 
 # Split last token
 rsplit = lambda x,sep,: (x[:x.rfind(sep)], x[x.rfind(sep)+1:],)
@@ -166,7 +165,7 @@ class ServiceModuleWriter:
         d = sd.initdef
 
         if sd.location is not None:
-            scheme,netloc,path,params,query,fragment = urlparse.urlparse(sd.location)
+            _,_,path,_,_,_ = urlparse.urlparse(sd.location)
             print >>d, '%sdef __init__(self, post=\'%s\', **kw):' %(self.getIndent(level=1), path)
         else:
             print >>d, '%sdef __init__(self, post, **kw):' %self.getIndent(level=1)
@@ -202,15 +201,15 @@ class ServiceModuleWriter:
         for bop in binding.operations:
             try:
                 op = portType.operations[bop.name]
-            except KeyError, ex:
+            except KeyError:
                 raise WsdlGeneratorError,\
                     'Port(%s) PortType(%s) missing operation(%s) defined in Binding(%s)' \
                     %(port.name,portType.name,bop.name,binding.name)
 
             for ext in bop.extensions:
-                 if isinstance(ext, WSDLTools.SoapOperationBinding):
-                     action_in = ext.soapAction
-                     break
+                if isinstance(ext, WSDLTools.SoapOperationBinding):
+                    action_in = ext.soapAction
+                    break
             else:
                 warnings.warn('Port(%s) operation(%s) defined in Binding(%s) missing soapAction' \
                     %(port.name,op.name,binding.name)
@@ -265,7 +264,7 @@ class ServiceModuleWriter:
         print >>fd, ''
         print >>fd, ''
         print >>fd, '# Service Skeletons'
-        for k,v in self._services.items():
+        for v in self._services.values():
             print >>fd, v.classdef.getvalue()
             print >>fd, v.initdef.getvalue()
             for s in v.methods:
@@ -293,7 +292,7 @@ class ServiceModuleWriter:
                 desc = BindingDescription(wsdl=wsdl)
                 try:
                     desc.setUp(port.getBinding())
-                except Wsdl2PythonError, ex:
+                except Wsdl2PythonError:
                     continue
 
                 for soc in desc.operations:
@@ -372,7 +371,7 @@ class WSAServiceModuleWriter(ServiceModuleWriter):
         for bop in binding.operations:
             try:
                 op = portType.operations[bop.name]
-            except KeyError, ex:
+            except KeyError:
                 raise WsdlGeneratorError,\
                     'Port(%s) PortType(%s) missing operation(%s) defined in Binding(%s)' \
                     %(port.name, portType.name, op.name, binding.name)

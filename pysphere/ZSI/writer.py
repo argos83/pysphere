@@ -4,13 +4,10 @@
 '''
 
 from pysphere.ZSI import _copyright, _get_idstr, ZSI_SCHEMA_URI
-from pysphere.ZSI import _backtrace, _stringtypes, _seqtypes
+from pysphere.ZSI import _backtrace
 from pysphere.ZSI.wstools.Utility import MessageInterface, ElementProxy
 from pysphere.ZSI.wstools.Namespaces import XMLNS, SOAP, SCHEMA
-from pysphere.ZSI.wstools.c14n import Canonicalize
 from pysphere.ZSI.wstools.MIMEAttachment import MIMEMessage
-
-import types
 
 _standard_ns = [ ('xml', XMLNS.XML), ('xmlns', XMLNS.BASE) ]
 
@@ -62,8 +59,8 @@ class SoapWriter:
             #first part the SOAP message
             msg = MIMEMessage()
             msg.addXMLMessage(str(self.dom))
-            for file in self._attachments:
-                msg.attachFile(file)
+            for f in self._attachments:
+                msg.attachFile(f)
             msg.makeBoundary()
             self._MIMEBoundary = msg.getBoundary()
             self._startCID = msg.getStartCID()
@@ -105,7 +102,7 @@ class SoapWriter:
             raise RuntimeError(
                    'typecode is required to serialize pyobj in header')
 
-        helt = typecode.serialize(header, self, pyobj, **kw)
+        typecode.serialize(header, self, pyobj, **kw)
 
     def serialize(self, pyobj, typecode=None, root=None, header_pyobjs=(), **kw):
         '''Serialize a Python object to the output stream.

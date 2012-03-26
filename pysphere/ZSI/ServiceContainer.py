@@ -3,15 +3,14 @@
    -- use with wsdl2py generated modules.
 '''
 
-import urlparse, types, os, sys, cStringIO as StringIO, thread,re
-from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
+import urlparse, sys, thread,re
+from BaseHTTPServer import HTTPServer
 from pysphere.ZSI import ParseException, FaultFromException, FaultFromZSIException, Fault
-from pysphere.ZSI import _copyright, _seqtypes, _get_element_nsuri_name, resolvers
+from pysphere.ZSI import _copyright, _get_element_nsuri_name, resolvers
 from pysphere.ZSI import _get_idstr
 from pysphere.ZSI.address import Address
 from pysphere.ZSI.parse import ParsedSoap
 from pysphere.ZSI.writer import SoapWriter
-from pysphere.ZSI.dispatch import _ModPythonSendXML, _ModPythonSendFault, _CGISendXML, _CGISendFault
 from pysphere.ZSI.dispatch import SOAPRequestHandler as BaseSOAPRequestHandler
 
 """
@@ -103,9 +102,9 @@ def _Dispatch(ps, server, SendResponse, SendFault, post, action, nsdict={}, **kw
 
     try:
         if isWSResource is True:
-            request,result = method(ps, address)
+            _,result = method(ps, address)
         else:
-            request,result = method(ps)
+            _,result = method(ps)
     except Exception, e:
         return SendFault(FaultFromException(e, 0, sys.exc_info()[2]), **kw)
 
@@ -259,7 +258,7 @@ class WSAResource(ServiceSOAPBinding):
            action -- request WS-Action value.
         '''
         opName = self.getOperationName(ps, action)
-        if self.wsAction.has_key(opName) is False:
+        if not opName in self.wsAction:
             raise WSActionNotSpecified, 'wsAction dictionary missing key(%s)' %opName
         return self.wsAction[opName]
 
@@ -281,10 +280,12 @@ class WSAResource(ServiceSOAPBinding):
             if ct.startswith('multipart/'):
                 cid = resolvers.MIMEResolver(ct, self.rfile)
                 xml = cid.GetSOAPPart()
-                ps = ParsedSoap(xml, resolver=cid.Resolve, readerclass=DomletteReader)
+                #ps = ParsedSoap(xml, resolver=cid.Resolve, readerclass=DomletteReader)
+                ps = ParsedSoap(xml, resolver=cid.Resolve)
             else:
                 length = int(self.headers['content-length'])
-                ps = ParsedSoap(self.rfile.read(length), readerclass=DomletteReader)
+                #ps = ParsedSoap(self.rfile.read(length), readerclass=DomletteReader)
+                ps = ParsedSoap(self.rfile.read(length))
         except ParseException, e:
             self.send_fault(FaultFromZSIException(e))
         except Exception, e:
@@ -304,7 +305,7 @@ class WSAResource(ServiceSOAPBinding):
                 self.send_fault(FaultFromException(e, 0, sys.exc_info()[2]))
 
             # Clean up after the call
-            if _contexts.has_key(thread_id):
+            if thread_id in _contexts:
                 del _contexts[thread_id]
 
 
@@ -351,7 +352,7 @@ class SOAPRequestHandler(BaseSOAPRequestHandler):
                 self.send_fault(FaultFromException(e, 0, sys.exc_info()[2]))
 
             # Clean up after the call
-            if _contexts.has_key(thread_id):
+            if thread_id in _contexts:
                 del _contexts[thread_id]
 
     def do_GET(self):
@@ -395,15 +396,15 @@ class ServiceContainer(HTTPServer):
         def __str__(self):
             return str(self.__dict)
 
-	def listNodes(self):
-	    print self.__dict.keys()
+        def listNodes(self):
+            print self.__dict.keys()
 
         def getNode(self, url):
             path = urlparse.urlsplit(url)[2]
             if path.startswith("/"):
                 path = path[1:]
 
-            if self.__dict.has_key(path):
+            if path in self.__dict:
                 return self.__dict[path]
             else:
                 raise NoSuchService, 'No service(%s) in ServiceContainer' %path
@@ -414,8 +415,8 @@ class ServiceContainer(HTTPServer):
                 path = path[1:]
 
             if not isinstance(service, ServiceSOAPBinding):
-               raise TypeError, 'A Service must implement class ServiceSOAPBinding'
-            if self.__dict.has_key(path):
+                raise TypeError, 'A Service must implement class ServiceSOAPBinding'
+            if path in self.__dict:
                 raise ServiceAlreadyPresent, 'Service(%s) already in ServiceContainer' % path
             else:
                 self.__dict[path] = service
@@ -425,7 +426,7 @@ class ServiceContainer(HTTPServer):
             if path.startswith("/"):
                 path = path[1:]
 
-            if self.__dict.has_key(path):
+            if path in self.__dict:
                 node = self.__dict[path]
                 del self.__dict[path]
                 return node
@@ -487,7 +488,8 @@ class SimpleWSResource(ServiceSOAPBinding):
         '''
         node = self.getNode(post)
         if node is None:
-            raise NoSuchFunction
+            raise Exception
+            
         if node.authorize(None, post, action):
             return node.getOperation(ps, action)
         else:

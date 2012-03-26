@@ -8,9 +8,7 @@
 # FOR A PARTICULAR PURPOSE.
 
 import weakref, re, os, sys
-from ConfigParser import SafeConfigParser as ConfigParser,\
-    NoSectionError, NoOptionError
-from urlparse import urlparse
+from ConfigParser import SafeConfigParser as ConfigParser
 
 from pysphere.ZSI import TC
 from pysphere.ZSI.client import _Binding
@@ -70,8 +68,7 @@ class ServiceProxy:
 
         # Set up rpc methods for service/port
         port = self._port
-        binding = port.getBinding()
-        portType = binding.getPortType()
+
         for port in self._service.ports:
             for item in port.getPortType().operations:
                 try:
@@ -95,11 +92,11 @@ class ServiceProxy:
         # wsdl2py: deal with XML Schema
         if not os.path.isdir(cachedir): os.mkdir(cachedir)
 
-        file = os.path.join(cachedir, '.cache')
+        _file = os.path.join(cachedir, '.cache')
         section = 'TYPES'
         cp = ConfigParser()
         try:
-            cp.readfp(open(file, 'r'))
+            cp.readfp(open(_file, 'r'))
         except IOError:
             del cp;  cp = None
 
@@ -121,7 +118,7 @@ class ServiceProxy:
             if not cp.has_section(section): cp.add_section(section)
             types = filter(lambda f: f.endswith('_types.py'), files)[0]
             cp.set(section, option, types)
-            cp.write(open(file, 'w'))
+            cp.write(open(_file, 'w'))
 
         if os.path.abspath(cachedir) not in sys.path:
             sys.path.append(os.path.abspath(cachedir))
@@ -138,11 +135,11 @@ class ServiceProxy:
         # wsdl2py: deal with XML Schema
         if not os.path.isdir(cachedir): os.mkdir(cachedir)
 
-        file = os.path.join(cachedir, '.cache')
+        _file = os.path.join(cachedir, '.cache')
         section = 'TYPES'
         cp = ConfigParser()
         try:
-            cp.readfp(open(file, 'r'))
+            cp.readfp(open(_file, 'r'))
         except IOError:
             del cp;  cp = None
 
@@ -181,8 +178,7 @@ class ServiceProxy:
             if not cp.has_section(section): cp.add_section(section)
             types = filter(lambda f: f.endswith('_types.py'), files)[0]
             cp.set(section, option, types)
-            cp.write(open(file, 'w'))
-
+            cp.write(open(_file, 'w'))
         if os.path.abspath(cachedir) not in sys.path:
             sys.path.append(os.path.abspath(cachedir))
 
@@ -247,7 +243,7 @@ class ServiceProxy:
                                     klass = filter(lambda gt: part.type[1]==gt.type[1],TC.TYPES)
                                     if not len(klass):klass = [TC.Any]
                                 if len(klass) > 1: #Enumerations, XMLString, etc
-                                    klass = filter(lambda i: i.__dict__.has_key('type'), klass)
+                                    klass = filter(lambda i: 'type' in i.__dict__, klass)
                                 klass = klass[0]
                             else:
                                 klass = TC.Any
@@ -279,10 +275,10 @@ class ServiceProxy:
                 if not msg: msg = dict()
                 self._nullpyclass(request)
             elif request.pyclass is not None:
-                if type(args) is dict:
+                if isinstance(args, dict):
                     msg = request.pyclass()
                     msg.__dict__.update(args)
-                elif type(args) is list and len(args) == 1:
+                elif isinstance(args, list) and len(args) == 1:
                     msg = request.pyclass(args[0])
                 else:
                     msg = request.pyclass()
@@ -304,7 +300,7 @@ class ServiceProxy:
     def _nullpyclass(cls, typecode):
         typecode.pyclass = None
         if not hasattr(typecode, 'ofwhat'): return
-        if type(typecode.ofwhat) not in (list,tuple): #Array
+        if not isinstance(typecode.ofwhat, (list,tuple)): #Array
             cls._nullpyclass(typecode.ofwhat)
         else: #Struct/ComplexType
             for i in typecode.ofwhat: cls._nullpyclass(i)
@@ -331,7 +327,7 @@ class MethodProxy:
         def _remap(pyobj, **d):
             pyobj.__dict__ = d
             for k,v in pyobj.__dict__.items():
-                if type(v) is not dict: continue
+                if not isinstance(v, dict): continue
                 pyobj.__dict__[k] = p = _holder()
                 _remap(p, **v)
 
@@ -348,7 +344,7 @@ class MethodProxy:
             if pyclass is None:
                 raise RuntimeError, 'no pyclass for typecode %s' %str(h.type)
 
-            if type(v) is not dict:
+            if not isinstance(v, dict):
                 pyobj = pyclass(v)
             else:
                 pyobj = pyclass()

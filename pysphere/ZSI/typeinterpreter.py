@@ -4,9 +4,9 @@
 ###########################################################################
 
 import pysphere.ZSI as ZSI
-from pysphere.ZSI import TC, TCtimes, TCcompound
+from pysphere.ZSI import TC, TCcompound
 from pysphere.ZSI.TC import TypeCode
-from pysphere.ZSI import _copyright, EvaluateException
+from pysphere.ZSI import EvaluateException
 from pysphere.ZSI.wstools.Utility import SplitQName
 from pysphere.ZSI.wstools.Namespaces import SOAP, SCHEMA
 
@@ -84,7 +84,7 @@ class BaseTypeInterpreter:
         untaged_xsd_types = {'boolean':TC.Boolean,
             'decimal':TC.Decimal,
             'base64Binary':TC.Base64String}
-        if untaged_xsd_types.has_key(msg_type):
+        if msg_type in untaged_xsd_types:
             return untaged_xsd_types[msg_type]
         for tc in self._type_list:
             if tc.type == (SCHEMA.XSD3,msg_type):
@@ -102,7 +102,7 @@ class BaseTypeInterpreter:
         return self._get_xsd_typecode(msg_type)
 
     def get_typeclass(self, msg_type, targetNamespace):
-        prefix, name = SplitQName(msg_type)
+        _, name = SplitQName(msg_type)
         if targetNamespace in SCHEMA.XSD_LIST:
             return self._get_xsd_typecode(name)
         elif targetNamespace in [SOAP.ENC]:

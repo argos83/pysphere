@@ -5,20 +5,17 @@
 
 from pysphere.ZSI import _copyright, _children, _child_elements, \
     _inttypes, _stringtypes, _seqtypes, _find_arraytype, _find_href, \
-    _find_type, _find_xmlns_prefix, _get_idstr, EvaluateException, \
-    ParseException
+    _find_type, _get_idstr, EvaluateException
 
-from pysphere.ZSI.TC import _get_element_nsuri_name, \
-     _get_xsitype, TypeCode, Any, AnyElement, AnyType, \
-     Nilled, UNBOUNDED
+from pysphere.ZSI.TC import _get_xsitype, TypeCode, Any, AnyElement, AnyType, \
+     Nilled
 
-from pysphere.ZSI.schema import GED, ElementDeclaration, TypeDefinition, \
-    _get_substitute_element, _get_type_definition, _is_substitute_element
+from pysphere.ZSI.schema import ElementDeclaration, TypeDefinition, \
+    _get_substitute_element, _is_substitute_element
 
-from pysphere.ZSI.wstools.Namespaces import SCHEMA, SOAP
-from pysphere.ZSI.wstools.Utility import SplitQName
+from pysphere.ZSI.wstools.Namespaces import SOAP
 from pysphere.ZSI.wstools.logging import getLogger as _GetLogger
-import re, types
+import re
 from copy import copy as _copy
 
 _find_arrayoffset = lambda E: E.getAttributeNS(SOAP.ENC, "offset")
@@ -118,14 +115,14 @@ class ComplexType(TypeCode):
         if self.mutable is True: self.inline = True
         self.type = kw.get('type') or _get_xsitype(self)
         t = type(ofwhat)
-        if t not in _seqtypes:
+        if not isinstance(ofwhat, _seqtypes):
             raise TypeError(
                 'Struct ofwhat must be list or sequence, not ' + str(t))
         self.ofwhat = tuple(ofwhat)
         if TypeCode.typechecks:
             # XXX Not sure how to determine if new-style class..
             if self.pyclass is not None and \
-                type(self.pyclass) is not types.ClassType and not isinstance(self.pyclass, object):
+                not isinstance(self.pyclass, type) and not isinstance(self.pyclass, object):
                 raise TypeError('pyclass must be None or an old-style/new-style class, not ' +
                         str(type(self.pyclass)))
             _check_typecode_list(self.ofwhat, 'ComplexType')
@@ -154,7 +151,6 @@ class ComplexType(TypeCode):
                         ps.Backtrace(elt))
             elt = ps.FindLocalHREF(href, elt)
         c = _child_elements(elt)
-        count = len(c)
         if self.nilled(elt, ps): return Nilled
 
         # Create the object.
@@ -286,21 +282,21 @@ class ComplexType(TypeCode):
 
             #MIXED For now just stick it in front.
             if self.mixed is True and self.mixed_aname is not None:
-               if hasattr(pyobj, self.mixed_aname):
-                   textContent = getattr(pyobj, self.mixed_aname)
-                   if hasattr(textContent, 'typecode'):
-                       textContent.typecode.serialize_text_node(elem, sw, textContent)
-                   elif type(textContent) in _stringtypes:
-                       if debug:
-                           self.logger.debug("mixed text content:\n\t%s",
+                if hasattr(pyobj, self.mixed_aname):
+                    textContent = getattr(pyobj, self.mixed_aname)
+                    if hasattr(textContent, 'typecode'):
+                        textContent.typecode.serialize_text_node(elem, sw, textContent)
+                    elif isinstance(textContent, _stringtypes):
+                        if debug:
+                            self.logger.debug("mixed text content:\n\t%s",
                                              textContent)
-                       elem.createAppendTextNode(textContent)
-                   else:
-                       raise EvaluateException('mixed test content in element (%s,%s) must be a string type' %(
+                        elem.createAppendTextNode(textContent)
+                    else:
+                        raise EvaluateException('mixed test content in element (%s,%s) must be a string type' %(
                            self.nspname,self.pname), sw.Backtrace(elt))
-               else:
-                   if debug:
-                       self.logger.debug("mixed NO text content in %s",
+                else:
+                    if debug:
+                        self.logger.debug("mixed NO text content in %s",
                                          self.mixed_aname)
         else:
             #For information items w/o tagNames
@@ -315,7 +311,7 @@ class ComplexType(TypeCode):
         elif n is not None:
             self.set_attribute_id(elem, objid)
 
-        if self.pyclass and type(self.pyclass) is type:
+        if self.pyclass and isinstance(self.pyclass, type):
             f = lambda attr: getattr(pyobj, attr, None)
         elif self.pyclass:
             d = pyobj.__dict__
@@ -323,7 +319,7 @@ class ComplexType(TypeCode):
         else:
             d = pyobj
             f = lambda attr: pyobj.get(attr)
-            if TypeCode.typechecks and type(d) != types.DictType:
+            if TypeCode.typechecks and not isinstance(d, dict):
                 raise TypeError("Classless complexType didn't get dictionary")
 
         indx, lenofwhat = 0, len(self.ofwhat)
@@ -362,7 +358,7 @@ class ComplexType(TypeCode):
             # to make sure it is derived from what.
             whatTC = what
             if whatTC.maxOccurs > 1 and v is not None:
-                if type(v) not in _seqtypes:
+                if not isinstance(v, _seqtypes):
                     raise EvaluateException('pyobj (%s,%s), aname "%s": maxOccurs %s, expecting a %s' %(
                          self.nspname,self.pname,what.aname,whatTC.maxOccurs,_seqtypes),
                          sw.Backtrace(elt))
@@ -419,12 +415,12 @@ class ComplexType(TypeCode):
         """
         if extensions:
             ofwhat = list(self.ofwhat)
-            if type(extensions) in _seqtypes:
+            if isinstance(extensions, _seqtypes):
                 ofwhat += list(extensions)
             else:
                 ofwhat.append(extensions)
         elif restrictions:
-            if type(restrictions) in _seqtypes:
+            if isinstance(restrictions, _seqtypes):
                 ofwhat = restrictions
             else:
                 ofwhat = (restrictions,)
@@ -507,9 +503,9 @@ class Array(TypeCode):
         self.childnames = childnames
         if self.size:
             t = type(self.size)
-            if t in _inttypes:
+            if isinstance(self.size, _inttypes):
                 self.size = (self.size,)
-            elif t in _seqtypes:
+            elif isinstance(self.size, _seqtypes):
                 self.size = tuple(self.size)
             elif TypeCode.typechecks:
                 raise TypeError('Size must be integer or list, not ' + str(t))
@@ -518,9 +514,9 @@ class Array(TypeCode):
         ofwhat = ofwhat or Any()
 
         if TypeCode.typechecks:
-            if self.undeclared is False and type(atype) not in _seqtypes and len(atype) == 2:
+            if self.undeclared is False and not isinstance(atype, _seqtypes) and len(atype) == 2:
                 raise TypeError("Array type must be a sequence of len 2.")
-            t = type(ofwhat)
+            
             if not isinstance(ofwhat, TypeCode):
                 raise TypeError(
                     'Array ofwhat outside the TypeCode hierarchy, ' +
@@ -529,7 +525,7 @@ class Array(TypeCode):
                 if len(self.size) != self.dimensions:
                     raise TypeError('Array dimension/size mismatch')
                 for s in self.size:
-                    if type(s) not in _inttypes:
+                    if not isinstance(s, _inttypes):
                         raise TypeError('Array size "' + str(s) +
                                 '" is not an integer.')
         self.ofwhat = ofwhat

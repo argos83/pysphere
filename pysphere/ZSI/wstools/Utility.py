@@ -14,26 +14,25 @@
 
 ident = "$Id$"
 
-import sys, types, httplib, urllib, socket, weakref
+import sys, httplib, urllib, socket, weakref
 from os.path import isfile
 from string import join, strip, split
 from UserDict import UserDict
 from cStringIO import StringIO
-from TimeoutSocket import TimeoutSocket, TimeoutError
+from TimeoutSocket import TimeoutSocket
 from urlparse import urlparse
 from httplib import HTTPConnection, HTTPSConnection
 from exceptions import Exception
-try:
-    from ZSI import _get_idstr
-except:
-    def _get_idstr(pyobj):
-        '''Python 2.3.x generates a FutureWarning for negative IDs, so
-        we use a different prefix character to ensure uniqueness, and
-        call abs() to avoid the warning.'''
-        x = id(pyobj)
-        if x < 0:
-            return 'x%x' % abs(x)
-        return 'o%x' % x
+
+
+def _get_idstr(pyobj):
+    '''Python 2.3.x generates a FutureWarning for negative IDs, so
+    we use a different prefix character to ensure uniqueness, and
+    call abs() to avoid the warning.'''
+    x = id(pyobj)
+    if x < 0:
+        return 'x%x' % abs(x)
+    return 'o%x' % x
 
 import xml.dom.minidom
 from xml.dom import Node
@@ -43,31 +42,28 @@ from c14n import Canonicalize
 from Namespaces import SCHEMA, SOAP, XMLNS, ZSI_SCHEMA_URI
 
 
-try:
-    from xml.dom.ext import SplitQName
-except:
-    def SplitQName(qname):
-        '''SplitQName(qname) -> (string, string)
-        
-           Split Qualified Name into a tuple of len 2, consisting 
-           of the prefix and the local name.  
+def SplitQName(qname):
+    '''SplitQName(qname) -> (string, string)
     
-           (prefix, localName)
-        
-           Special Cases:
-               xmlns -- (localName, 'xmlns')
-               None -- (None, localName)
-        '''
-        
-        l = qname.split(':')
-        if len(l) == 1:
-            l.insert(0, None)
-        elif len(l) == 2:
-            if l[0] == 'xmlns':
-                l.reverse()
-        else:
-            return
-        return tuple(l)
+       Split Qualified Name into a tuple of len 2, consisting 
+       of the prefix and the local name.  
+
+       (prefix, localName)
+    
+       Special Cases:
+           xmlns -- (localName, 'xmlns')
+           None -- (None, localName)
+    '''
+    
+    l = qname.split(':')
+    if len(l) == 1:
+        l.insert(0, None)
+    elif len(l) == 2:
+        if l[0] == 'xmlns':
+            l.reverse()
+    else:
+        return
+    return tuple(l)
 
 #
 # python2.3 urllib.basejoin does not remove current directory ./
@@ -193,7 +189,7 @@ def urlopen(url, timeout=20, redirects=None):
         location = response.msg.getheader('location')
         if location is not None:
             response.close()
-            if redirects is not None and redirects.has_key(location):
+            if redirects and location in redirects:
                 raise RecursionError(
                     'Circular HTTP redirection detected.'
                     )
@@ -430,17 +426,17 @@ class DOM:
             return default
         raise KeyError, name
 
-    def getElementById(self, node, id, default=join):
+    def getElementById(self, node, _id, default=join):
         """Return the first child of node matching an id reference."""
         attrget = self.getAttr
         ELEMENT_NODE = node.ELEMENT_NODE
         for child in node.childNodes:
             if child.nodeType == ELEMENT_NODE:
-                if attrget(child, 'id') == id:
+                if attrget(child, 'id') == _id:
                     return child
         if default is not join:
             return default
-        raise KeyError, name
+        raise KeyError
 
     def getMappingById(self, document, depth=None, element=None,
                        mapping=None, level=1):
@@ -568,7 +564,6 @@ class DOM:
     def findTargetNS(self, node):
         """Return the defined target namespace uri for the given node."""
         attrget = self.getAttr
-        attrkey = (self.NS_XMLNS, 'xmlns')
         DOCUMENT_NODE = node.DOCUMENT_NODE
         ELEMENT_NODE = node.ELEMENT_NODE
         while 1:
@@ -612,12 +607,12 @@ class DOM:
         for child in node.childNodes:
             self._setOwnerDoc(document, child)
 
-    def nsUriMatch(self, value, wanted, strict=0, tt=type(())):
+    def nsUriMatch(self, value, wanted, strict=0, tt=tuple):
         """Return a true value if two namespace uri values match."""
-        if value == wanted or (type(wanted) is tt) and value in wanted:
+        if value == wanted or isinstance(wanted, tt) and value in wanted:
             return 1
         if not strict and value is not None:
-            wanted = type(wanted) is tt and wanted or (wanted,)
+            wanted = isinstance(wanted, tt) and wanted or (wanted,)
             value = value[-1:] != '/' and value or value[:-1]
             for item in wanted:
                 if item == value or item[:-1] == value:
@@ -637,17 +632,17 @@ class DOM:
     def loadFromURL(self, url):
         """Load an xml file from a URL and return a DOM document."""
         if isfile(url) is True:
-            file = open(url, 'r')
+            f = open(url, 'r')
         else:
-            file = urlopen(url)
+            f = urlopen(url)
 
         try:     
-            result = self.loadDocument(file)
+            result = self.loadDocument(f)
         except Exception, ex:
-            file.close()
+            f.close()
             raise ParseError(('Failed to load document %s' %url,) + ex.args)
         else:
-            file.close()
+            f.close()
         return result
 
 DOM = DOM()
@@ -662,7 +657,7 @@ class MessageInterface:
             sw -- soapWriter instance
         '''
         self.sw = None
-        if type(sw) != weakref.ReferenceType and sw is not None:
+        if not isinstance(sw, weakref.ReferenceType) and sw is not None:
             self.sw = weakref.ref(sw)
         else:
             self.sw = sw
@@ -756,7 +751,7 @@ class ElementProxy(Base, MessageInterface):
         Base.__init__(self)
         self._dom = DOM
         self.node = None
-        if type(message) in (types.StringType,types.UnicodeType):
+        if isinstance(message, (str,unicode)):
             self.loadFromString(message)
         elif isinstance(message, ElementProxy):
             self.node = message._getNode()
@@ -767,17 +762,6 @@ class ElementProxy(Base, MessageInterface):
 
     def __str__(self):
         return self.toString()
-
-    def evaluate(self, expression, processorNss=None):
-        '''expression -- XPath compiled expression
-        '''
-        from Ft.Xml import XPath
-        if not processorNss:
-            context = XPath.Context.Context(self.node, processorNss=self.processorNss)
-        else:
-            context = XPath.Context.Context(self.node, processorNss=processorNss)
-        nodes = expression.evaluate(context)
-        return map(lambda node: ElementProxy(self.sw,node), nodes)
 
     #############################################
     # Methods for checking/setting the
@@ -835,7 +819,7 @@ class ElementProxy(Base, MessageInterface):
             prefix = 'ns%d' %self._indx
             try:
                 self._dom.findNamespaceURI(prefix, self._getNode())
-            except DOMException, ex:
+            except DOMException:
                 break
         return prefix
 
@@ -849,7 +833,7 @@ class ElementProxy(Base, MessageInterface):
             if node and (node.nodeType == node.ELEMENT_NODE) and \
                 (nsuri == self._dom.findDefaultNS(node)):
                 return None
-        except DOMException, ex:
+        except DOMException:
             pass
         if nsuri == XMLNS.XML:
             return self._xml_prefix
@@ -900,7 +884,7 @@ class ElementProxy(Base, MessageInterface):
     def getPrefix(self, namespaceURI):
         try:
             prefix = self._getPrefix(node=self.node, nsuri=namespaceURI)
-        except NamespaceError, ex:
+        except NamespaceError:
             prefix = self._getUniquePrefix() 
             self.setNamespaceAttribute(prefix, namespaceURI)
         return prefix
@@ -977,7 +961,7 @@ class ElementProxy(Base, MessageInterface):
     def createAttributeNS(self, namespace, name, value):
         document = self._getOwnerDocument()
         ##this function doesn't exist!! it has only two arguments
-        attrNode = document.createAttributeNS(namespace, name, value)
+        document.createAttributeNS(namespace, name, value)
 
     def setAttributeNS(self, namespaceURI, localName, value):
         '''
@@ -991,7 +975,7 @@ class ElementProxy(Base, MessageInterface):
         if namespaceURI:
             try:
                 prefix = self.getPrefix(namespaceURI)
-            except KeyError, ex:
+            except KeyError:
                 prefix = 'ns2'
                 self.setNamespaceAttribute(prefix, namespaceURI)
         qualifiedName = localName
@@ -1111,8 +1095,7 @@ class ElementProxy(Base, MessageInterface):
     def findNamespaceURI(self, qualifiedName):
         parts = SplitQName(qualifiedName)
         element = self._getNode()
-        if len(parts) == 1:
-            return (self._dom.findTargetNS(element), value)
+
         return self._dom.findNamespaceURI(parts[0], element)
 
     def resolvePrefix(self, prefix):
@@ -1137,7 +1120,7 @@ class Collection(UserDict):
         self._func = key or self.default
 
     def __getitem__(self, key):
-        if type(key) is type(1):
+        if isinstance(key, int):
             return self.list[key]
         return self.data[key]
 
@@ -1168,7 +1151,7 @@ class CollectionNS(UserDict):
 
     def __getitem__(self, key):
         self.targetNamespace = self.parent().targetNamespace
-        if type(key) is types.IntType:
+        if isinstance(key, int):
             return self.list[key]
         elif self.__isSequence(key):
             nsuri,name = key
@@ -1179,12 +1162,12 @@ class CollectionNS(UserDict):
         item.parent = weakref.ref(self)
         self.list.append(item)
         targetNamespace = getattr(item, 'targetNamespace', self.parent().targetNamespace)
-        if not self.data.has_key(targetNamespace):
+        if targetNamespace not in self.data:
             self.data[targetNamespace] = {}
         self.data[targetNamespace][key] = item
 
     def __isSequence(self, key):
-        return (type(key) in (types.TupleType,types.ListType) and len(key) == 2)
+        return (isinstance(key, (tuple, list)) and len(key) == 2)
 
     def keys(self):
         keys = []

@@ -62,7 +62,6 @@ class VIServerTest(TestCase):
             if rp_path.count('/') == 1:
                 rp_by_root_rp.extend(self.server.get_resource_pools(
                                                         from_mor=rp_key).keys())
-        print len(rp_by_root_rp), len(all_rp)
         assert sorted(rp_by_root_rp) == sorted(all_rp.keys())
         
     def test_get_registered_vms(self):

@@ -31,7 +31,7 @@ import sys
 
 from resources import VimService_services as VI
 
-from resources.vi_exception import *
+from resources.vi_exception import VIException, VIApiException, FaultTypes
 from vi_virtual_machine import VIVirtualMachine
 from vi_performance_manager import PerformanceManager
 from vi_mor import VIMor, MORTypes
