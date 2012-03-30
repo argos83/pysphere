@@ -140,7 +140,7 @@ class PerformanceManager:
             counters = [counters]
             
         if any([isinstance(i, basestring) for i in counters]):
-            avail_counters = self.get_entity_counters(entity)
+            avail_counters = self.get_entity_counters(entity, interval)
             new_list = []
             for c in counters:
                 if isinstance(c, int):
