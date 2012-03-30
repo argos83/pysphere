@@ -48,6 +48,9 @@ class VIApiException(VIException):
 
         super(self.__class__, self).__init__(message, fault)
 
+class UnsupportedPerfIntervalError(VIException):
+    pass
+
 class FaultTypes:
     PARAMETER_ERROR    = 'Parameter Error'
     OBJECT_NOT_FOUND   = 'Object Not Found'

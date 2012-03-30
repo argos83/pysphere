@@ -27,8 +27,10 @@
 #
 #--
 
-from resources import VimService_services as VI
-from resources.vi_exception import VIException, VIApiException, FaultTypes
+from pysphere.resources import VimService_services as VI
+from pysphere import VIProperty
+from pysphere.resources.vi_exception import VIException, VIApiException, \
+                    UnsupportedPerfIntervalError, FaultTypes
 import datetime
 
 class EntityStatistics:
@@ -59,11 +61,27 @@ class EntityStatistics:
         return"<%(mor)s:%(counter)s(%(counter_key)s):%(description)s" \
               ":%(instance)s:%(value)s:%(unit)s:%(time)s>" % self.__dict__
 
-class PerformanceManager:
+class Intervals:
+    CURRENT = None
+    PAST_DAY = 1
+    PAST_WEEK = 2
+    PAST_MONTH = 3
+    PAST_YEAR = 4
 
+class PerformanceManager:
+    INTERVALS = Intervals
+    
     def __init__(self, server, mor):
         self._server = server
         self._mor = mor
+        self._properties = VIProperty(server, mor)
+        
+        try:
+            self._supported_intervals = dict([(i.key, i.samplingPeriod) 
+            for i in self._properties.historicalInterval if i.enabled])
+        except:
+            #not historical intervals supported
+            self._supported_intervals = {}
 
     def _get_counter_info(self, counter_id, counter_obj):
         """Return name, description, group, and unit info of a give counter_id.
@@ -90,25 +108,34 @@ class PerformanceManager:
                     metric_list.append(metric)
         return metric_list
 
-    def get_entity_counters(self, entity):
+    def get_entity_counters(self, entity, interval=None):
         """Returns a dictionary of available counters. The dictionary key
-        is the counter name, and value is the corresponding counter id"""
-        refresh_rate = self.query_perf_provider_summary(entity).RefreshRate
+        is the counter name, and value is the corresponding counter id
+        interval: None (default) for current real-time statistics, or the
+            interval id for historical statistics see IDs available in
+            PerformanceManager.INTERVALS"""
+        sampling_period = self._check_and_get_interval_by_id(entity, interval)
         metrics = self.query_available_perf_metric(entity,
-                                                   interval_id=refresh_rate)
+                                                   interval_id=sampling_period)
+        if not metrics:
+            return {}
         counter_obj = self.query_perf_counter([metric.CounterId 
                                                for metric in metrics])
         return dict([("%s.%s" % (c.GroupInfo.Key, c.NameInfo.Key), c.Key)
                      for c in counter_obj]) 
         
 
-    def get_entity_statistic(self, entity, counters):
+    def get_entity_statistic(self, entity, counters, interval=None):
         """ Get the give statistics from a given managed object
         entity [mor]: ManagedObject Reference of the managed object from were
             statistics are to be retrieved.
         counter_id [list of integers or strings]: Counter names or ids 
                                                  to retrieve stats for.
+        interval: None (default) for current real-time statistics, or the
+            interval id for historical statistics see IDs available in
+            PerformanceManager.INTERVALS
         """
+        sampling_period = self._check_and_get_interval_by_id(entity, interval)
         if not isinstance(counters, list):
             counters = [counters]
             
@@ -124,15 +151,14 @@ class PerformanceManager:
                         new_list.append(counter_id)
             counters = new_list
                     
-        refresh_rate = self.query_perf_provider_summary(entity).RefreshRate
         metrics = self.query_available_perf_metric(entity,
-                                                   interval_id=refresh_rate)
+                                                   interval_id=sampling_period)
         counter_obj = self.query_perf_counter(counters)
         metric = self._get_metric_id(metrics, counter_obj, counters)
         if not metric:
             return []
         query = self.query_perf(entity, metric_id=metric, max_sample=1,
-                                interval_id=refresh_rate)
+                                interval_id=sampling_period)
 
         statistics = []
         if not query:
@@ -150,6 +176,33 @@ class PerformanceManager:
                                                date_now))
         return statistics
 
+    def _check_and_get_interval_by_id(self, entity, interval):
+        """Given an interval ID (or None for refresh rate) verifies if
+        the entity or the system supports that interval. Returns the sampling
+        period if so, or raises an Exception if not supported"""
+        
+        summary = self.query_perf_provider_summary(entity)
+        if not interval: #must support current (real time) statistics
+            if not summary.CurrentSupported:
+                raise UnsupportedPerfIntervalError(
+                                  "Current statistics not supported for this "
+                                  "entity. Try using an historical interval " 
+                                  "id instead.", FaultTypes.NOT_SUPPORTED)
+            return summary.RefreshRate
+        else:
+            if not summary.SummarySupported:
+                raise UnsupportedPerfIntervalError(
+                                  "Summary statistics not supported for this "
+                                  "entity. Try using current interlval instead " 
+                                  "(interval=None).", FaultTypes.NOT_SUPPORTED)
+            if interval not in self._supported_intervals:
+                raise UnsupportedPerfIntervalError(
+                                  "The Interval ID provided is not supported "
+                                  "on this server.", FaultTypes.NOT_SUPPORTED)
+                
+            return self._supported_intervals.get(interval)
+        
+        
     def query_available_perf_metric(self, entity, begin_time=None,
                                                   end_time=None,
                                                   interval_id=None):
@@ -303,7 +356,6 @@ class PerformanceManager:
             if not isinstance(max_sample, int) or max_sample < 0:
                 raise VIException("max_sample must be a positive integer",
                                   FaultTypes.PARAMETER_ERROR)
-        # TODO: Proper checks
         if metric_id:
             if not isinstance(metric_id, list):
                 raise VIException("metric_id must be a list of integers",
