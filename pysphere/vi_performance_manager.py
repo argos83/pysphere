@@ -28,7 +28,7 @@
 #--
 
 from pysphere.resources import VimService_services as VI
-from pysphere import VIProperty
+from pysphere.vi_property import VIProperty
 from pysphere.resources.vi_exception import VIException, VIApiException, \
                     UnsupportedPerfIntervalError, FaultTypes
 import datetime
