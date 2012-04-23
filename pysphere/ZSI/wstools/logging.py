@@ -143,8 +143,8 @@ class GLRecord(dict):
         s = StringIO()
         reserved = self.reserved; omitname = self.omitname; levels = self.levels
 
-        for k in ( list(filter(lambda i: i in self, reserved)) + 
-            list(filter(lambda i: i not in reserved, self.keys()))
+        for k in ( list([i for i in reserved if i in self]) + 
+            list([i for i in self.iterkeys() if i not in reserved])
         ):
             v = self[k]
             if k in omitname: 

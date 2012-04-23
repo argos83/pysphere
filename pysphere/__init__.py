@@ -166,10 +166,11 @@
 __all__ = ['VIServer', 'VIException', 'VIApiException', 'VITask', 'FaultTypes',
             'VIMor', 'MORTypes', 'VMPowerState', 'ToolsStatus', 'VIProperty']
 
-from vi_server import VIServer
-from vi_virtual_machine import VMPowerState, ToolsStatus
-from vi_property import VIProperty
-from vi_task import VITask
-from vi_mor import VIMor, MORTypes
-from resources.vi_exception import VIException, VIApiException, FaultTypes
+from pysphere.resources.vi_exception import VIException, VIApiException, \
+                                            FaultTypes
+from pysphere.vi_task import VITask
+from pysphere.vi_property import VIProperty
+from pysphere.vi_mor import VIMor, MORTypes
+from pysphere.vi_server import VIServer
+from pysphere.vi_virtual_machine import VMPowerState, ToolsStatus
 #from version import version as __version__

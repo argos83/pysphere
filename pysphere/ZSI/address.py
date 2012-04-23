@@ -30,15 +30,15 @@ class Address(object):
     def setUp(self):
         '''Look for WS-Address
         '''
-        toplist = filter(lambda wsa: wsa.ADDRESS==self.wsAddressURI, WSA_LIST)
+        toplist = [wsa for wsa in WSA_LIST if wsa.ADDRESS==self.wsAddressURI]
         epr = 'EndpointReferenceType'
         for WSA in toplist+WSA_LIST:
             if (self.wsAddressURI is not None and self.wsAddressURI != WSA.ADDRESS) or \
                 _has_type_definition(WSA.ADDRESS, epr) is True:
                 break
         else:
-            raise EvaluateException,\
-                'enabling wsAddressing requires the inclusion of that namespace'
+            raise EvaluateException(
+               'enabling wsAddressing requires the inclusion of that namespace')
 
         self.wsAddressURI = WSA.ADDRESS
         self.anonymousURI = WSA.ANONYMOUS
@@ -50,11 +50,13 @@ class Address(object):
         value  -- Action value server returned.
         '''
         if action is None:
-            raise WSActionException, 'Response missing WSAddress Action'
+            raise WSActionException('Response missing WSAddress Action')
         if not value:
-            raise WSActionException, 'missing WSAddress Action, expecting %s' %action
+            raise WSActionException('missing WSAddress Action, expecting %s'
+                                     % action)
         if value != action:
-            raise WSActionException, 'wrong WSAddress Action(%s), expecting %s'%(value,action)
+            raise WSActionException('wrong WSAddress Action(%s), expecting %s'
+                                    % (value,action))
 
     def _checkFrom(self, pyobj):
         '''WS-Address From,
@@ -73,21 +75,21 @@ class Address(object):
                     ('127.0.0.1', socket.gethostbyname(netloc[0]))):
                     return
 
-            raise WSActionException, 'wrong WS-Address From(%s), expecting %s'%(value,self._addressTo)
+            raise WSActionException('wrong WS-Address From(%s), expecting %s'%(value,self._addressTo))
 
     def _checkRelatesTo(self, value):
         '''WS-Address From
         value  -- From server returned.
         '''
         if value != self._messageID:
-            raise WSActionException, 'wrong WS-Address RelatesTo(%s), expecting %s'%(value,self._messageID)
+            raise WSActionException('wrong WS-Address RelatesTo(%s), expecting %s'%(value,self._messageID))
 
     def _checkReplyTo(self, value):
         '''WS-Address From
         value  -- From server returned in wsa:To
         '''
         if value != self._replyTo:
-            raise WSActionException, 'wrong WS-Address ReplyTo(%s), expecting %s'%(value,self._replyTo)
+            raise WSActionException('wrong WS-Address ReplyTo(%s), expecting %s'%(value,self._replyTo))
 
     def setAction(self, action):
         self._action = action
@@ -106,18 +108,20 @@ class Address(object):
         '''
         typecodes = []
         try:
-            for nsuri,elements in kw.items():
+            for nsuri,elements in kw.iteritems():
                 for el in elements:
                     typecode = GED(nsuri, el)
                     if typecode is None:
-                        raise WSActionException, 'Missing namespace, import "%s"' %nsuri
+                        raise WSActionException('Missing namespace, import "%s"'
+                                                % nsuri)
 
                     typecodes.append(typecode)
             else:
                 pass
         except EvaluateException:
-            raise EvaluateException, \
-                'To use ws-addressing register typecodes for namespace(%s)' %self.wsAddressURI
+            raise EvaluateException(
+                'To use ws-addressing register typecodes for namespace(%s)'
+                % self.wsAddressURI)
         return typecodes
 
     def checkResponse(self, ps, action):
@@ -173,12 +177,12 @@ class Address(object):
 
         if endPointReference:
             if hasattr(endPointReference, 'typecode') is False:
-                raise EvaluateException, 'endPointReference must have a typecode attribute'
+                raise EvaluateException('endPointReference must have a typecode attribute')
 
             if isinstance(endPointReference.typecode, \
                 GTD(namespaceURI ,'EndpointReferenceType')) is False:
-                raise EvaluateException, 'endPointReference must be of type %s' \
-                    %GTD(namespaceURI ,'EndpointReferenceType')
+                raise EvaluateException('endPointReference must be of type %s'
+                    %GTD(namespaceURI ,'EndpointReferenceType'))
 
             ReferenceProperties = getattr(endPointReference, '_ReferenceProperties', None)
             if ReferenceProperties is None: # In recent WS-A attribute name changed
@@ -186,7 +190,7 @@ class Address(object):
             if ReferenceProperties is not None:
                 for v in getattr(ReferenceProperties, '_any', ()):
                     if not hasattr(v,'typecode'):
-                        raise EvaluateException, '<any> element, instance missing typecode attribute'
+                        raise EvaluateException('<any> element, instance missing typecode attribute')
 
                     pyobjs.append(v)
 
@@ -223,7 +227,7 @@ class Address(object):
         '''
         for pyobj in self.header_pyobjs:
             if hasattr(pyobj, 'typecode') is False:
-                raise RuntimeError, 'all header pyobjs must have a typecode attribute'
+                raise RuntimeError('all header pyobjs must have a typecode attribute')
 
             sw.serialize_header(pyobj, **kw)
 

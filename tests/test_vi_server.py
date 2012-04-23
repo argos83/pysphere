@@ -96,6 +96,15 @@ class VIServerTest(TestCase):
                 templates.append(path)
                 
         vms_by_root_rp.extend(templates)
+        #fd1 = open("all.txt", "w")
+        #fd2 = open("bdc.txt", "w")
+        #fd3 = open("brp.txt", "w")
+        #fd1.write("\n".join(sorted(all_vms)))
+        #fd2.write("\n".join(sorted(vms_by_datacenter)))
+        #fd3.write("\n".join(sorted(vms_by_root_rp)))
+        #fd1.close()
+        #fd2.close()
+        #fd3.close()
         assert sorted(all_vms) == sorted(vms_by_datacenter) == sorted(
                                                                  vms_by_root_rp)
 

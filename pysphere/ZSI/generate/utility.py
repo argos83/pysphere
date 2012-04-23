@@ -55,7 +55,7 @@ class NamespaceAliasDict:
         if ns in SCHEMA.XSD_LIST:
             msg = 'missing built-in typecode for schema "%s"' %ns
 
-        raise WsdlGeneratorError, msg
+        raise WsdlGeneratorError(msg)
 
     getModuleName = classmethod(getModuleName)
 
@@ -68,7 +68,7 @@ class NamespaceAliasDict:
         if ns in SCHEMA.XSD_LIST:
             msg = 'missing built-in typecode for schema "%s"' %ns
 
-        raise WsdlGeneratorError, msg
+        raise WsdlGeneratorError(msg)
 
     getAlias = classmethod(getAlias)
 
@@ -120,13 +120,13 @@ class MessageContainer:
 # Args is a list of Message Parts.  i.e.: op.getInputMessage().parts.values()
 def GetPartsSubNames(args, wsdl):
     do_extended = True
-    from wsdl2python import WriteServiceModule, SchemaDescription
+    from pysphere.ZSI.generate.wsdl2python import WriteServiceModule, SchemaDescription
     wsm = WriteServiceModule(wsdl, do_extended=do_extended)
     wsm.gatherNamespaces()
     toReturn = []
     for arg in args:
         argSubnames = []
-        for l in wsm.usedNamespaces.values():
+        for l in wsm.usedNamespaces.itervalues():
             for schema in l:
                 sd = SchemaDescription(do_extended=do_extended)
                 sd.fromSchema(schema)

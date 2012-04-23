@@ -4,7 +4,6 @@
 '''
 
 from pysphere.ZSI import TC
-from pysphere.ZSI import _copyright
 import base64, os
 
 from pysphere.ZSI import ZSI_SCHEMA_URI
@@ -63,5 +62,3 @@ class ClientBinding:
         '''Return the ParsedSoap request.
         '''
         return self.ps
-
-if __name__ == '__main__': print _copyright

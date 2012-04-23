@@ -40,7 +40,7 @@ class VIProperty(object):
     def _flush_cache(self):
         if not self._values_set:
             return
-        for name in self._values.keys():
+        for name in self._values.iterkeys():
             try:
                 delattr(self, name)
             except AttributeError:

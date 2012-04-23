@@ -3,7 +3,7 @@
 '''Apache typecodes.
 '''
 
-from pysphere.ZSI import _copyright, _child_elements, _get_idstr
+from pysphere.ZSI import _child_elements, _get_idstr
 from pysphere.ZSI.TC import SimpleType, TypeCode, Struct as _Struct, Any as _Any
 from pysphere.ZSI.wstools.logging import getLogger as _GetLogger
 from pysphere.ZSI.wstools.Namespaces import APACHE
@@ -69,7 +69,7 @@ class _Map(TypeCode):
             for k,v in pyobj:
                 self.tc.serialize(el, sw, {'key': k, 'value': v}, name='item')
         else:
-            for k,v in pyobj.items():
+            for k,v in pyobj.iteritems():
                 self.tc.serialize(el, sw, {'key': k, 'value': v}, name='item')
 
 class AttachmentRef(SimpleType):
@@ -121,4 +121,3 @@ class AttachmentRef(SimpleType):
 
 Apache.Map = _Map
 
-if __name__ == '__main__': print _copyright

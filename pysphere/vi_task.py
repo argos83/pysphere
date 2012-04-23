@@ -29,8 +29,8 @@
 
 import time
 
-from resources.vi_exception import VIException, FaultTypes, VIApiException
-from resources import VimService_services as VI
+from pysphere import VIException, FaultTypes, VIApiException
+from pysphere.resources import VimService_services as VI
 
 class VITask:
 

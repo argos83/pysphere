@@ -3,7 +3,7 @@
 '''Faults.
 '''
 
-from pysphere.ZSI import _copyright, _get_idstr, _seqtypes, SoapWriter, ZSIException
+from pysphere.ZSI import _get_idstr, _seqtypes, SoapWriter, ZSIException
 
 from pysphere.ZSI.TCcompound import Struct
 from pysphere.ZSI.TC import QName, URI, String, AnyElement, UNBOUNDED
@@ -255,6 +255,3 @@ def FaultFromFaultMessage(ps):
 
     return Fault(pyobj.faultcode, pyobj.faultstring,
                 pyobj.faultactor, detailany)
-
-
-if __name__ == '__main__': print _copyright

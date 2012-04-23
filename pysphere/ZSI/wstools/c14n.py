@@ -47,7 +47,6 @@ or
   http://www.w3.org/Consortium/Legal/copyright-software-19980720
 '''
 
-import string
 from xml.dom import Node
 
 try:
@@ -173,7 +172,7 @@ class _implementation:
         elif node.nodeType == Node.DOCUMENT_TYPE_NODE:
             pass
         else:
-            raise TypeError, str(node)
+            raise TypeError(str(node))
 
 
     def _inherit_context(self, node):
@@ -183,12 +182,12 @@ class _implementation:
         canonicalization.'''
 
         # Collect the initial list of xml:foo attributes.
-        xmlattrs = filter(_IN_XML_NS, _attrs(node))
+        xmlattrs = [x for x in _attrs(node) if _IN_XML_NS(x)]
 
         # Walk up and get all xml:XXX attributes we inherit.
         inherited, parent = [], node.parentNode
         while parent and parent.nodeType == Node.ELEMENT_NODE:
-            for a in filter(_IN_XML_NS, _attrs(parent)):
+            for a in [x for x in _attrs(parent) if _IN_XML_NS(x)]:
                 n = a.localName
                 if n not in xmlattrs:
                     xmlattrs.append(n)
@@ -216,7 +215,7 @@ class _implementation:
             elif child.nodeType == Node.DOCUMENT_TYPE_NODE:
                 pass
             else:
-                raise TypeError, str(child)
+                raise TypeError(str(child))
     handlers[Node.DOCUMENT_NODE] = _do_document
 
 
@@ -225,10 +224,10 @@ class _implementation:
         Process a text or CDATA node.  Render various special characters
         as their C14N entity representations.'''
         if not _in_subset(self.subset, node): return
-        s = string.replace(node.data, "&", "&amp;")
-        s = string.replace(s, "<", "&lt;")
-        s = string.replace(s, ">", "&gt;")
-        s = string.replace(s, "\015", "&#xD;")
+        s = node.data.replace("&", "&amp;")
+        s = s.replace("<", "&lt;")
+        s = s.replace(">", "&gt;")
+        s = s.replace("\015", "&#xD;")
         if s: self.write(s)
     handlers[Node.TEXT_NODE] = _do_text
     handlers[Node.CDATA_SECTION_NODE] = _do_text
@@ -279,12 +278,12 @@ class _implementation:
         W(' ')
         W(n)
         W('="')
-        s = string.replace(value, "&", "&amp;")
-        s = string.replace(s, "<", "&lt;")
-        s = string.replace(s, '"', '&quot;')
-        s = string.replace(s, '\011', '&#x9')
-        s = string.replace(s, '\012', '&#xA')
-        s = string.replace(s, '\015', '&#xD')
+        s = value.replace("&", "&amp;")
+        s = s.replace("<", "&lt;")
+        s = s.replace('"', '&quot;')
+        s = s.replace('\011', '&#x9')
+        s = s.replace('\012', '&#xA')
+        s = s.replace('\015', '&#xD')
         W(s)
         W('"')
 
@@ -342,9 +341,9 @@ class _implementation:
                     
                 if prefix not in ns_rendered and prefix not in ns_local:
                     if prefix not in ns_unused_inherited:
-                        raise RuntimeError,\
+                        raise RuntimeError(
                             'For exclusive c14n, unable to map prefix "%s" in %s' %(
-                            prefix, node)
+                            prefix, node))
                     
                     ns_local[prefix] = ns_unused_inherited[prefix]
                     del ns_unused_inherited[prefix]
@@ -354,7 +353,7 @@ class _implementation:
 
             # Create list of NS attributes to render.
             ns_to_render = []
-            for n,v in ns_local.items():
+            for n,v in ns_local.iteritems():
 
                 # If default namespace is XMLNS.BASE or empty,
                 # and if an ancestor was the same
@@ -372,7 +371,7 @@ class _implementation:
 
                 # If not previously rendered
                 # and it's inclusive  or utilized
-                if (n,v) not in ns_rendered.items():
+                if (n,v) not in list(ns_rendered.iteritems()):
                     if inclusive or _utilized(n, node, other_attrs, self.unsuppressedPrefixes):
                         ns_to_render.append((n, v))
                     elif not inclusive:
@@ -388,9 +387,9 @@ class _implementation:
             # Else, add all local and ancestor xml attributes
             # Sort and render the attributes.
             if not inclusive or _in_subset(self.subset,node.parentNode):  #0426
-                other_attrs.extend(xml_attrs_local.values())
+                other_attrs.extend(xml_attrs_local.itervalues())
             else:
-                other_attrs.extend(xml_attrs.values())
+                other_attrs.extend(xml_attrs.itervalues())
             other_attrs.sort(_sorter)
             for a in other_attrs:
                 self._do_attr(a.nodeName, a.value)
@@ -422,8 +421,8 @@ def Canonicalize(node, output=None, **kw):
                 prefixes that should be inherited.
     '''
     if output:
-        apply(_implementation, (node, output.write), kw)
+        _implementation(*(node, output.write), **kw)
     else:
         s = StringIO.StringIO()
-        apply(_implementation, (node, s.write), kw)
+        _implementation(*(node, s.write), **kw)
         return s.getvalue()

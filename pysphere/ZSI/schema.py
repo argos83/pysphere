@@ -3,7 +3,7 @@
 """XML Schema support
 """
 
-from pysphere.ZSI import _copyright, _find_type, _get_element_nsuri_name, EvaluateException
+from pysphere.ZSI import _find_type, _get_element_nsuri_name, EvaluateException
 from pysphere.ZSI.wstools.Utility import SplitQName
 
 
@@ -112,7 +112,7 @@ class SchemaInstanceType(type):
 
         if ElementDeclaration in bases:
             if not 'schema' in classdict or not 'literal' in  classdict:
-                raise AttributeError, 'ElementDeclaration must define schema and literal attributes'
+                raise AttributeError('ElementDeclaration must define schema and literal attributes')
 
             key = (classdict['schema'],classdict['literal'])
             if key in SchemaInstanceType.elements:
@@ -125,7 +125,7 @@ class SchemaInstanceType(type):
 
         if TypeDefinition in bases:
             if not 'type' in classdict:
-                raise AttributeError, 'TypeDefinition must define type attribute'
+                raise AttributeError('TypeDefinition must define type attribute')
 
             key = classdict['type']
             if not key in SchemaInstanceType.types:
@@ -135,7 +135,7 @@ class SchemaInstanceType(type):
         if LocalElementDeclaration in bases:
                 return type.__new__(cls,classname,bases,classdict)
 
-        raise TypeError, 'SchemaInstanceType must be an ElementDeclaration or TypeDefinition '
+        raise TypeError('SchemaInstanceType must be an ElementDeclaration or TypeDefinition')
 
     def getTypeDefinition(cls, namespaceURI, name, lazy=False):
         """Grab a type definition, returns a typecode class definition
@@ -372,7 +372,7 @@ class _GetPyobjWrapper:
         """register a builtin, create a new wrapper.
         """
         if arg in cls.types_dict:
-            raise RuntimeError, '%s already registered' %arg
+            raise RuntimeError('%s already registered' % arg)
         class _Wrapper(arg):
             'Wrapper for builtin %s\n%s' %(arg, cls.__doc__)
         _Wrapper.__name__ = '_%sWrapper' %arg.__name__
@@ -384,7 +384,7 @@ class _GetPyobjWrapper:
         to TypeCode class serialmap and Re-RegisterType.  Provides
         Any serialzation of any instances of the Wrapper.
         """
-        for k,v in cls.types_dict.items():
+        for k,v in cls.types_dict.iteritems():
             what = Any.serialmap.get(k)
             if what is None: continue
             if v in what.__class__.seriallist: continue
@@ -404,9 +404,9 @@ class _GetPyobjWrapper:
         elif type(pyobj) in  d:
             pyclass = d[type(pyobj)]
         else:
-            raise TypeError,\
+            raise TypeError(
                'Expecting a built-in type in %s (got %s).' %(
-                d.keys(),type(pyobj))
+                d.keys(),type(pyobj)))
 
         newobj = pyclass(pyobj)
         newobj.typecode = what
@@ -415,6 +415,3 @@ class _GetPyobjWrapper:
 
 
 from TC import Any, RegisterType
-
-if __name__ == '__main__': print _copyright
-

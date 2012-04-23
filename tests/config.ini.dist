@@ -13,3 +13,12 @@ user = root
 password = secret2
 server_type = ESXi
 api_version = 5.0
+
+#to be powered on/off/reverted/snapshoted/snapshot removed/etc
+writable_vm = [datastore] path/to/config.vmx
+
+#to be reverted
+windows_vm_with_tools = [datastore] path/to/windows/config.vmx
+windwos_vm_snapshot = snap_name
+windows_vm_username = Admin
+windows_vm_password = admin

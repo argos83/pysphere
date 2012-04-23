@@ -6,7 +6,7 @@
 import urlparse, sys, thread,re
 from BaseHTTPServer import HTTPServer
 from pysphere.ZSI import ParseException, FaultFromException, FaultFromZSIException, Fault
-from pysphere.ZSI import _copyright, _get_element_nsuri_name, resolvers
+from pysphere.ZSI import _get_element_nsuri_name, resolvers
 from pysphere.ZSI import _get_idstr
 from pysphere.ZSI.address import Address
 from pysphere.ZSI.parse import ParsedSoap
@@ -201,8 +201,9 @@ class ServiceInterface:
         method = self.root.get(_get_element_nsuri_name(ps.body_root)) or \
             self.soapAction.get(action)
         if method is None:
-            raise UnknownRequestException, \
-                'failed to map request to a method: action(%s), root%s' %(action,_get_element_nsuri_name(ps.body_root))
+            raise UnknownRequestException(
+                'failed to map request to a method: action(%s), root%s' 
+                %(action,_get_element_nsuri_name(ps.body_root)))
         return method
 
 
@@ -259,7 +260,8 @@ class WSAResource(ServiceSOAPBinding):
         '''
         opName = self.getOperationName(ps, action)
         if not opName in self.wsAction:
-            raise WSActionNotSpecified, 'wsAction dictionary missing key(%s)' %opName
+            raise WSActionNotSpecified('wsAction dictionary missing key(%s)'
+                                       % opName)
         return self.wsAction[opName]
 
     def do_POST(self):
@@ -271,7 +273,7 @@ class WSAResource(ServiceSOAPBinding):
         soapAction = self.headers.getheader('SOAPAction')
         post = self.path
         if not post:
-            raise PostNotSpecified, 'HTTP POST not specified in request'
+            raise PostNotSpecified('HTTP POST not specified in request')
         if soapAction:
             soapAction = soapAction.strip('\'"')
         post = post.strip('\'"')
@@ -319,7 +321,7 @@ class SOAPRequestHandler(BaseSOAPRequestHandler):
         soapAction = self.headers.getheader('SOAPAction')
         post = self.path
         if not post:
-            raise PostNotSpecified, 'HTTP POST not specified in request'
+            raise PostNotSpecified('HTTP POST not specified in request')
         if soapAction:
             soapAction = soapAction.strip('\'"')
         post = post.strip('\'"')
@@ -397,7 +399,7 @@ class ServiceContainer(HTTPServer):
             return str(self.__dict)
 
         def listNodes(self):
-            print self.__dict.keys()
+            print list(self.__dict.iterkeys())
 
         def getNode(self, url):
             path = urlparse.urlsplit(url)[2]
@@ -407,7 +409,7 @@ class ServiceContainer(HTTPServer):
             if path in self.__dict:
                 return self.__dict[path]
             else:
-                raise NoSuchService, 'No service(%s) in ServiceContainer' %path
+                raise NoSuchService('No service(%s) in ServiceContainer' % path)
 
         def setNode(self, service, url):
             path = urlparse.urlsplit(url)[2]
@@ -415,9 +417,9 @@ class ServiceContainer(HTTPServer):
                 path = path[1:]
 
             if not isinstance(service, ServiceSOAPBinding):
-                raise TypeError, 'A Service must implement class ServiceSOAPBinding'
+                raise TypeError('A Service must implement class ServiceSOAPBinding')
             if path in self.__dict:
-                raise ServiceAlreadyPresent, 'Service(%s) already in ServiceContainer' % path
+                raise ServiceAlreadyPresent('Service(%s) already in ServiceContainer' % path)
             else:
                 self.__dict[path] = service
 
@@ -431,7 +433,7 @@ class ServiceContainer(HTTPServer):
                 del self.__dict[path]
                 return node
             else:
-                raise NoSuchService, 'No service(%s) in ServiceContainer' %path
+                raise NoSuchService('No service(%s) in ServiceContainer' % path)
 
     def __init__(self, server_address, services=[], RequestHandlerClass=SOAPRequestHandler):
         '''server_address --
@@ -439,7 +441,7 @@ class ServiceContainer(HTTPServer):
         '''
         HTTPServer.__init__(self, server_address, RequestHandlerClass)
         self._nodes = self.NodeTree()
-        map(lambda s: self.setNode(s), services)
+        [self.setNode(s) for s in services]
 
     def __str__(self):
         return '%s(%s) nodes( %s )' %(self.__class__, _get_idstr(self), str(self._nodes))
@@ -493,7 +495,4 @@ class SimpleWSResource(ServiceSOAPBinding):
         if node.authorize(None, post, action):
             return node.getOperation(ps, action)
         else:
-            raise NotAuthorized, "Authorization failed for method %s" % action
-
-
-if __name__ == '__main__': print _copyright
+            raise NotAuthorized("Authorization failed for method %s" % action)

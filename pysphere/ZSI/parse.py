@@ -4,11 +4,10 @@
 '''
 
 from xml.dom import expatbuilder
-from pysphere.ZSI import _copyright, _children, _attrs, _child_elements, _stringtypes, \
+from pysphere.ZSI import _children, _attrs, _child_elements, _stringtypes, \
         _backtrace, EvaluateException, ParseException, _valid_encoding, \
         _Node, _find_attr, _resolve_prefix
 from pysphere.ZSI.TC import AnyElement
-import types
 
 from pysphere.ZSI.wstools.Namespaces import SOAP, XMLNS
 from pysphere.ZSI.wstools.Utility import SplitQName
@@ -351,7 +350,7 @@ class ParsedSoap:
         c, crange = self.header_elements[:], range(len(self.header_elements))
         for i,what in [ (i, ofwhat[i]) for i in range(lenofwhat) ]:
             if isinstance(what, AnyElement):
-                raise EvaluateException, 'not supporting <any> as child of soapenc:Header'
+                raise EvaluateException('not supporting <any> as child of soapenc:Header')
 
             v = []
             namespaceURI,tagName = what.nspname,what.pname
@@ -365,13 +364,10 @@ class ParsedSoap:
                 v.append(pyobj)
                 c[j] = None
             if what.minOccurs > len(v) > what.maxOccurs:
-                raise EvaluateException, 'number of occurances(%d) doesnt fit constraints (%d,%s)'\
-                   %(len(v),what.minOccurs,what.maxOccurs)
+                raise EvaluateException('number of occurances(%d) doesnt fit constraints (%d,%s)'\
+                   %(len(v),what.minOccurs,what.maxOccurs))
             if what.maxOccurs == 1:
                 if len(v) == 0: v = None
                 else: v = v[0]
             d[(what.nspname,what.pname)] = v
         return d
-
-
-if __name__ == '__main__': print _copyright

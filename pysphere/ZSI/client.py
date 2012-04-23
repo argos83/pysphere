@@ -5,7 +5,7 @@
 
 import threading
 
-from pysphere.ZSI import _copyright, _seqtypes, ParsedSoap, SoapWriter, TC, ZSI_SCHEMA_URI,\
+from pysphere.ZSI import _seqtypes, ParsedSoap, SoapWriter, TC, ZSI_SCHEMA_URI,\
     FaultFromFaultMessage, _child_elements, _find_arraytype,\
     _find_type, _get_idstr, _get_postvalue_from_absoluteURI, FaultException, WSActionException,\
     UNICODE_ENCODING
@@ -173,7 +173,7 @@ class _Binding:
     def __addcookies(self):
         '''Add cookies from self.cookies to request in self.local.h
         '''
-        for cname, morsel in self.cookies.items():
+        for cname, morsel in self.cookies.iteritems():
             attrs = []
             value = morsel.get('version', '')
             if value != '' and value != '0':
@@ -240,7 +240,7 @@ class _Binding:
             tc = getattr(obj, 'typecode', None) or TC.Any(pname=opname, aslist=False)
             try:
                 if isinstance(obj, _seqtypes):
-                    obj = dict(map(lambda i: (i.typecode.pname,i), obj))
+                    obj = dict([(i.typecode.pname,i) for i in obj])
             except AttributeError:
                 # can't do anything but serialize this in a SOAP:Array
                 tc = TC.Any(pname=opname, aslist=True)
@@ -264,8 +264,8 @@ class _Binding:
         # Serialize WS-Address
         if self.wsAddressURI is not None:
             if self.soapaction and wsaction.strip('\'"') != self.soapaction:
-                raise WSActionException, 'soapAction(%s) and WS-Action(%s) must match'\
-                    %(self.soapaction,wsaction)
+                raise WSActionException('soapAction(%s) and WS-Action(%s) must match'
+                    %(self.soapaction,wsaction))
 
             self.address = Address(url, self.wsAddressURI)
             self.address.setRequest(endPointReference, wsaction)
@@ -276,7 +276,7 @@ class _Binding:
         if self.sig_handler is not None:
             self.sig_handler.sign(sw)
 
-        scheme,netloc,path,nil,nil,nil = urlparse.urlparse(url)
+        scheme,netloc,_,_,_,_ = urlparse.urlparse(url)
         transport = self.transport
         if transport is None and url is not None:
             if scheme == 'https':
@@ -284,11 +284,11 @@ class _Binding:
             elif scheme == 'http':
                 transport = self.defaultHttpTransport
             else:
-                raise RuntimeError, 'must specify transport or url startswith https/http'
+                raise RuntimeError('must specify transport or url startswith https/http')
 
         # Send the request.
         if not issubclass(transport, httplib.HTTPConnection):
-            raise TypeError, 'transport must be a HTTPConnection'
+            raise TypeError('transport must be a HTTPConnection')
 
         soapdata = str(sw)
         self.local.h = transport(netloc, None, **self.transdict)
@@ -315,7 +315,7 @@ class _Binding:
             self.local.h.putheader("Content-Type" , "multipart/related; boundary=\"" + self.local.boundary + "\"; start=\"" + self.local.startCID + '\"; type="text/xml"')
         self.__addcookies()
 
-        for header,value in headers.items():
+        for header,value in headers.iteritems():
             self.local.h.putheader(header, value)
 
         SOAPActionValue = '"%s"' % (soapaction or self.soapaction)
@@ -350,8 +350,9 @@ class _Binding:
         if response.status != 401:
             raise RuntimeError, 'Expecting HTTP 401 response.'
         if self.auth_style != AUTH.httpdigest:
-            raise RuntimeError,\
-                'Auth style(%d) does not support requested digest authorization.' %self.auth_style
+            raise RuntimeError(
+                'Auth style(%d) does not support requested digest authorization.'
+                % self.auth_style)
 
         from pysphere.ZSI.digest_auth import fetch_challenge,\
             generate_response, build_authorization_arg
@@ -370,8 +371,7 @@ class _Binding:
             self.SendSOAPData(soapdata, url, soapaction, headers, **kw)
             return
 
-        raise RuntimeError,\
-            'Client expecting digest authorization challenge.'
+        raise RuntimeError('Client expecting digest authorization challenge.')
 
     def ReceiveRaw(self, **kw):
         '''Read a server reply, unconverted to any format and return it.
@@ -399,7 +399,7 @@ class _Binding:
             if saved: self.cookies.load(saved)
             if response.status == 401:
                 if not callable(self.http_callbacks.get(response.status,None)):
-                    raise RuntimeError, 'HTTP Digest Authorization Failed'
+                    raise RuntimeError('HTTP Digest Authorization Failed')
                 self.http_callbacks[response.status](response)
                 continue
             if response.status != 100: break
@@ -574,6 +574,3 @@ class NamedParamBinding(Binding):
             if hasattr(self, name): return getattr(self, name)
             return getattr(self.__class__, name)
         return _NamedParamCaller(self, name, self.namespace)
-
-
-if __name__ == '__main__': print _copyright

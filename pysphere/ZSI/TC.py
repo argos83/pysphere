@@ -3,7 +3,9 @@
 '''General typecodes.
 '''
 
-from pysphere.ZSI import _copyright, _children, _child_elements, _floattypes, \
+from inspect import isclass
+
+from pysphere.ZSI import _children, _child_elements, _floattypes, \
     _stringtypes, _seqtypes, _find_attrNodeNS, _find_arraytype, _find_href, \
     _find_encstyle, _resolve_prefix, _find_xsi_attr, _find_type, \
     _get_element_nsuri_name, _get_idstr, _Node, EvaluateException, \
@@ -289,7 +291,7 @@ class TypeCode:
             return
 
         attributes = {}
-        for attr,what in self.attribute_typecode_dict.items():
+        for attr,what in self.attribute_typecode_dict.iteritems():
             namespaceURI,localName = None,attr
             if isinstance(attr, _seqtypes):
                 namespaceURI,localName = attr
@@ -317,11 +319,10 @@ class TypeCode:
             return
 
         if not isinstance(getattr(pyobj, self.attrs_aname), dict):
-            raise TypeError,\
-                'pyobj.%s must be a dictionary of names and values'\
-                % self.attrs_aname
+            raise TypeError('pyobj.%s must be a dictionary of names and values'
+                            % self.attrs_aname)
 
-        for attr, value in getattr(pyobj, self.attrs_aname).items():
+        for attr, value in getattr(pyobj, self.attrs_aname).iteritems():
 
             namespaceURI,localName = None, attr
             if isinstance(attr, _seqtypes):
@@ -336,9 +337,8 @@ class TypeCode:
             # allow derived type
             if hasattr(value, 'typecode') and not isinstance(what, AnyType):
                 if what is not None and not isinstance(value.typecode, what):
-                    raise EvaluateException, \
-                        'self-describing attribute must subclass %s'\
-                        %what.__class__
+                    raise EvaluateException(
+                  'self-describing attribute must subclass %s' % what.__class__)
 
                 what = value.typecode
 
@@ -453,7 +453,8 @@ class SimpleType(TypeCode):
         return pyobj
 
     def get_formatted_content(self, pyobj):
-        raise NotImplementedError, 'method get_formatted_content is not implemented'
+        raise NotImplementedError(
+                              'method get_formatted_content is not implemented')
 
     def serialize_text_node(self, elt, sw, pyobj):
         '''Serialize without an element node.
@@ -462,7 +463,7 @@ class SimpleType(TypeCode):
         if pyobj is not None:
             text = self.get_formatted_content(pyobj)
             if not isinstance(text, _stringtypes):
-                raise TypeError, 'pyobj must be a formatted string'
+                raise TypeError('pyobj must be a formatted string')
 
             textNode = elt.createAppendTextNode(text)
 
@@ -609,7 +610,7 @@ class Any(TypeCode):
                 serializer = gDateTime()
         if serializer:
             return serializer.get_formatted_content(pyobj)
-        raise EvaluateException, 'Failed to find serializer for pyobj %s' %pyobj
+        raise EvaluateException('Failed to find serializer for pyobj %s' %pyobj)
 
     def serialize(self, elt, sw, pyobj, name=None, **kw):
         if hasattr(pyobj, 'typecode') and pyobj.typecode is not self:
@@ -644,9 +645,10 @@ class Any(TypeCode):
             el = elt.createAppendElement(ns, n)
             parentNspname = self.nspname # temporarily clear nspname for dict elements
             self.nspname = None
-            for o,m in pyobj.items():
+            for o,m in pyobj.iteritems():
                 if not isinstance(o, (str, unicode)):
-                    raise Exception, 'Dictionary implementation requires keys to be of type string (or unicode).' %pyobj
+                    raise Exception("Dictionary implementation requires keys to"
+                                    " be of type string (or unicode)." % pyobj)
                 kw['name'] = o
                 kw.setdefault('typed', True)
                 self.serialize(el, sw, m, **kw)
@@ -950,7 +952,7 @@ class Integer(SimpleType):
 
         'integer':              (_ignored, _ignored)
     }
-    parselist = [ (None,k) for k in ranges.keys() ]
+    parselist = [ (None,k) for k in ranges.iterkeys() ]
     seriallist = [ int, long ]
     logger = _GetLogger('ZSI.TC.Integer')
 
@@ -1257,7 +1259,7 @@ class XML(TypeCode):
             raise EvaluateException('Too many XML children %d (maxOccurs = %d)' % (len(c), self.maxOccurs),
                     ps.Backtrace(elt))
         if self.copyit:
-            c = map(lambda n: n.cloneNode(1), c)
+            c = [n.cloneNode(1) for n in c]
         if self.maxOccurs == 1:
             return c[0]
         return c
@@ -1300,7 +1302,9 @@ class XML(TypeCode):
         ## copy xmlns: attributes into appended node
         parent = pyobj.parentNode
         while parent.nodeType == _Node.ELEMENT_NODE:
-            for attr in filter(lambda a: a.name.startswith('xmlns:') and a.name not in child.attributes.keys(), parent.attributes):
+            for attr in [a for a in parent.attributes 
+                        if a.name.startswith('xmlns:') 
+                        and a.name not in child.attributes.keys()]:
                 child.setAttributeNode(attr.cloneNode(1))
 
             parent = parent.parentNode
@@ -1415,7 +1419,7 @@ class AnyElement(AnyType):
         instance.
         '''
         if isinstance(pyobj, TypeCode):
-            raise TypeError, 'pyobj is a typecode instance.'
+            raise TypeError('pyobj is a typecode instance.')
 
         what = getattr(pyobj, 'typecode', None)
         if what is not None and isinstance(pyobj, object):
@@ -1529,7 +1533,8 @@ class Union(SimpleType):
         if len(self.memberTypeCodes) > 0:
             return
         if self.__class__.memberTypes is None:
-            raise EvaluateException, 'uninitialized class variable memberTypes [(namespace,name),]'
+            raise EvaluateException("uninitialized class variable memberTypes " 
+                                    "[(namespace,name),]")
         for nsuri,name in self.__class__.memberTypes:
             tcclass = GTD(nsuri,name)
             if tcclass is None:
@@ -1539,11 +1544,13 @@ class Union(SimpleType):
                 typecode = tcclass(pname=(self.nspname,self.pname))
 
             if typecode is None:
-                raise EvaluateException, \
-                    'Typecode class for Union memberType (%s,%s) is missing' %(nsuri,name)
+                raise EvaluateException(
+                        'Typecode class for Union memberType (%s,%s) is missing'
+                                %(nsuri,name))
             if isinstance(typecode, Struct):
-                raise EvaluateException, \
-                    'Illegal: Union memberType (%s,%s) is complexType' %(nsuri,name)
+                raise EvaluateException(
+                    'Illegal: Union memberType (%s,%s) is complexType'
+                    %(nsuri,name))
             self.memberTypeCodes.append(typecode)
 
     def parse(self, elt, ps, **kw):
@@ -1710,7 +1717,7 @@ class List(SimpleType):
            pyobj -- python object to serialize
         '''
         if pyobj is not None and not isinstance(pyobj, _seqtypes):
-            raise EvaluateException, 'expecting a list or None'
+            raise EvaluateException('expecting a list or None')
 
         objid = _get_idstr(pyobj)
         ns,n = self.get_name(name, objid)
@@ -1729,7 +1736,7 @@ class List(SimpleType):
 
 
 def RegisterType(C, clobber=0, *args, **keywords):
-    instance = apply(C, args, keywords)
+    instance = C(*args, **keywords)
     for t in C.__dict__.get('parselist', []):
         prev = Any.parsemap.get(t)
         if prev:
@@ -1815,18 +1822,15 @@ def RegisterType(C, clobber=0, *args, **keywords):
 #        _RegisterTypeWithSchemaAndClass(importedSchemaTypes = generatedTypes, schemaTypeName=key, classModuleName=value[0], className=value[1], generatedClassSuffix=generatedClassSuffix)
 
 
-from TCnumbers import *
-from TCtimes import *
-from schema import GTD, GED, WrapImmutable
-from TCcompound import *
-from TCapache import *
+from pysphere.ZSI.TCnumbers import *
+from pysphere.ZSI.TCtimes import *
+from pysphere.ZSI.schema import GTD, GED, WrapImmutable
+from pysphere.ZSI.TCcompound import *
+from pysphere.ZSI.TCapache import *
 
 # aliases backwards compatiblity
 _get_type_definition, _get_global_element_declaration, Wrap  = GTD, GED, WrapImmutable
 
-f = lambda x: isinstance(x, type) and issubclass(x, TypeCode) and getattr(x, 'type', None) is not None
-TYPES = filter(f, map(lambda y:eval(y),dir()))
+f = lambda x: isclass(x) and issubclass(x, TypeCode) and getattr(x, 'type', None)
 
-
-if __name__ == '__main__': print _copyright
-
+TYPES = [o for o in globals().values() if f(o)]

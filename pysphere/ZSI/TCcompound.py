@@ -3,7 +3,7 @@
 '''Compound typecodes.
 '''
 
-from pysphere.ZSI import _copyright, _children, _child_elements, \
+from pysphere.ZSI import _children, _child_elements, \
     _inttypes, _stringtypes, _seqtypes, _find_arraytype, _find_href, \
     _find_type, _get_idstr, EvaluateException
 
@@ -265,8 +265,8 @@ class ComplexType(TypeCode):
                 elem = elt.createAppendElement(ns, n)
                 self.serialize_as_nil(elem)
                 return
-            raise EvaluateException, 'element(%s,%s) is not nillable(%s)' %(
-                self.nspname,self.pname,self.nillable)
+            raise EvaluateException( 'element(%s,%s) is not nillable(%s)' %
+                                     (self.nspname,self.pname,self.nillable))
 
         if self.mutable is False and sw.Known(pyobj):
             return
@@ -462,16 +462,15 @@ class Struct(ComplexType):
             )
 
         # Check Constraints
-        whats = map(lambda what: (what.nspname,what.pname), self.ofwhat)
+        whats = [(what.nspname,what.pname) for what in self.ofwhat]
         for idx in range(len(self.ofwhat)):
             what = self.ofwhat[idx]
             key = (what.nspname,what.pname)
             if not isinstance(what, AnyElement) and what.maxOccurs > 1:
-                raise TypeError,\
-                    'Constraint: no element can have a maxOccurs>1'
+                raise TypeError('Constraint: no element can have a maxOccurs>1')
             if key in whats[idx+1:]:
-                raise TypeError,\
-                    'Constraint: No element may have the same name as any other'
+                raise TypeError(
+                   'Constraint: No element may have the same name as any other')
 
 
 class Array(TypeCode):
@@ -647,6 +646,3 @@ class Array(TypeCode):
 
                 self.ofwhat.serialize(el, sw, v, **d)
                 position += 1
-
-
-if __name__ == '__main__': print _copyright

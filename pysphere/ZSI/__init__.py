@@ -248,7 +248,7 @@ def _resolve_prefix(celt, prefix):
         celt = celt.parentNode
     else:
         if prefix:
-            raise EvaluateException, 'cant resolve xmlns:%s' %prefix
+            raise EvaluateException('cant resolve xmlns:%s' % prefix)
     return namespaceURI
 
 def _valid_encoding(elt):
@@ -376,13 +376,13 @@ class WSActionException(ZSIException):
 
 ##
 ##  Importing the rest of ZSI.
-import version
 def Version():
+    from pysphere.ZSI import version
     return version.Version
 
-from writer import SoapWriter
-from parse import ParsedSoap
-from fault import Fault, \
+from pysphere.ZSI.writer import SoapWriter
+from pysphere.ZSI.parse import ParsedSoap
+from pysphere.ZSI.fault import Fault, \
     FaultFromActor, FaultFromException, FaultFromFaultMessage, \
     FaultFromNotUnderstood, FaultFromZSIException
 from pysphere.ZSI import TC
@@ -415,7 +415,7 @@ TC.RegisterType(TC.Apache.Map , minOccurs=0, nillable=False)
 ## Register Wrappers for builtin types.
 ## TC.AnyElement wraps builtins so element name information can be saved
 ##
-import schema
+from pysphere.ZSI import schema
 for i in [int,float,str,tuple,list,unicode]:
     schema._GetPyobjWrapper.RegisterBuiltin(i)
 
@@ -427,5 +427,3 @@ schema.RegisterAnyElement()
 #    from ServiceProxy import *
 #except:
 #    pass
-
-if __name__ == '__main__': print _copyright

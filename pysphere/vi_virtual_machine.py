@@ -27,22 +27,20 @@
 #
 #--
 
+import sys
 import time
 import os
 
-from resources import VimService_services as VI
-from resources.vi_exception import VIException, VIApiException, FaultTypes
-from vi_task import VITask
-from vi_snapshot import VISnapshot
-from vi_property import VIProperty
-from vi_mor import VIMor, MORTypes
+from pysphere.resources import VimService_services as VI
+from pysphere import VIException, VIApiException, FaultTypes
+from pysphere import VITask, VIProperty, VIMor, MORTypes
+from pysphere.vi_snapshot import VISnapshot
 
 class VIVirtualMachine:
 
     def __init__(self, server, mor):
         self._server = server
         self._mor = mor
-        self._properties = {}
         self._root_snapshots = []
         self._snapshot_list = []
         self._disks = []
@@ -188,12 +186,16 @@ class VIVirtualMachine:
 
     def get_status(self, basic_status=False):
         """Returns any of the status strings defined in VMPowerState:
-        'POWERED ON', 'POWERED OFF', 'SUSPENDED', 'POWERING ON', 'POWERING OFF',
-        'SUSPENDING', 'RESETTING', 'BLOCKED ON MSG', 'REVERTING TO SNAPSHOT',
-        'UNKNOWN'
+        basic statuses:
+            'POWERED ON', 'POWERED OFF', 'SUSPENDED', 'BLOCKED ON MSG'
+        extended_statuses (only available for vCenter):
+            'POWERING ON', 'POWERING OFF', 'SUSPENDING', 'RESETTING', 
+            'REVERTING TO SNAPSHOT', 'UNKNOWN'
+        if basic_status is False (defautl) and the server is a vCenter, then
+        one of the extended statuses might be returned.
         """
         #we can't check tasks in a VMWare Server or ESXi
-        if not basic_status:
+        if not basic_status and self._server.get_api_type() == 'VirtualCenter':
             try:
                 if not self._mor_vm_task_collector:
                     self.__create_pendant_task_collector()
@@ -219,7 +221,7 @@ class VIVirtualMachine:
                 return VMPowerState.BLOCKED_ON_MSG
 
         #we can't check tasks in a VMWare Server
-        if self._server.get_server_type() == 'VMware Server' or basic_status:
+        if self._server.get_api_type() != 'VirtualCenter' or basic_status:
             return vi_power_states.get(power_state, VMPowerState.UNKNOWN)
 
         #on the other hand, get the current task running or queued for this VM
@@ -1047,7 +1049,7 @@ class VIVirtualMachine:
         if os.path.exists(local_path) and not overwrite:
             raise VIException("Local file already exists",
                               FaultTypes.PARAMETER_ERROR)
-        import urllib
+        
         from urlparse import urlparse
         
         try:
@@ -1064,10 +1066,25 @@ class VIVirtualMachine:
             
             url = self._server._proxy.InitiateFileTransferFromGuest(request
                                                                 )._returnval.Url
-            
             url = url.replace("*", urlparse(self._server._proxy.binding.url
                                                                      ).hostname)
-            urllib.urlretrieve(url, local_path)
+            if sys.version_info >= (2, 6):
+                import urllib2
+                req = urllib2.Request(url)
+                r = urllib2.urlopen(req)
+                
+                CHUNK = 16 * 1024
+                fd = open(local_path, "wb")
+                while True:
+                    chunk = r.read(CHUNK)
+                    if not chunk: break
+                    fd.write(chunk)
+                fd.close()
+            else:
+                import urllib
+                #I was getting a SSL Protocol error executing this on
+                #python 2.6, but not with 2.5
+                urllib.urlretrieve(url, local_path)
             
         except (VI.ZSI.FaultException), e:
             raise VIApiException(e)
@@ -1301,7 +1318,7 @@ class VIVirtualMachine:
             spec = request.new_spec()
             spec.set_element_programPath(program_path)
             if env: spec.set_element_envVariables(["%s=%s" % (k,v) 
-                                                  for k,v in env.items()])
+                                                  for k,v in env.iteritems()])
             if cwd: spec.set_element_workingDirectory(cwd)
             spec.set_element_arguments("")
             if args:
@@ -1417,8 +1434,7 @@ class VIVirtualMachine:
         for snap in self._snapshot_list:
             path_list.append(snap.get_path())
 
-        path_list = list(set(filter(lambda x: path_list.count(x) > 1,
-                                                                    path_list)))
+        path_list = list(set([x for x in path_list if path_list.count(x) > 1]))
 
         for snap_path in path_list:
             v = 0

@@ -29,12 +29,12 @@
 
 import sys
 
-from resources import VimService_services as VI
+from pysphere.resources import VimService_services as VI
 
-from resources.vi_exception import VIException, VIApiException, FaultTypes
-from vi_virtual_machine import VIVirtualMachine
-from vi_performance_manager import PerformanceManager
-from vi_mor import VIMor, MORTypes
+from pysphere import VIException, VIApiException, FaultTypes
+from pysphere.vi_virtual_machine import VIVirtualMachine
+from pysphere.vi_performance_manager import PerformanceManager
+from pysphere.vi_mor import VIMor, MORTypes
 
 class VIServer:
 
@@ -42,6 +42,7 @@ class VIServer:
         self.__logged = False
         self.__server_type = None
         self.__api_version = None
+        self.__api_type = None
         self.__session = None
         self.__user = None
         self.__password = None
@@ -87,7 +88,7 @@ class VIServer:
 
             self._proxy = locator.getVimPortType(**args)
             
-            for header, value in self.__initial_headers.items():
+            for header, value in self.__initial_headers.iteritems():
                 self._proxy.binding.AddHeader(header, value)
                 
             #get service content from service instance
@@ -99,6 +100,7 @@ class VIServer:
                                                              request)._returnval
             self.__server_type = self._do_service_content.About.Name
             self.__api_version = self._do_service_content.About.ApiVersion
+            self.__api_type = self._do_service_content.About.ApiType
 
             #login
             request = VI.LoginRequestMsg()
@@ -223,11 +225,11 @@ class VIServer:
                     for rp in prop.Val.ManagedObjectReference:
                         this_rp["children"].append(str(rp))
             rps[mor_str] = this_rp
-        for _id, rp in rps.items():
+        for _id, rp in rps.iteritems():
             for child in rp["children"]:
                 rps[child]["parent"] = _id
         ret = {}
-        for rp in rps.values():
+        for rp in rps.itervalues():
             ret[rp["mor"]] = get_path(rps, rp) 
         
         return ret
@@ -246,9 +248,9 @@ class VIServer:
             else:
                 dc = self.get_datacenters()
                 if datacenter:
-                    dc_list = [k for k,v in dc.items() if v==datacenter]
+                    dc_list = [k for k,v in dc.iteritems() if v==datacenter]
                 else:
-                    dc_list = dc.keys()
+                    dc_list = list(dc.iterkeys())
 
             for mor_dc in dc_list:
                 request = VI.FindByDatastorePathRequestMsg()
@@ -291,12 +293,12 @@ class VIServer:
                 nodes = [datacenter]
             elif datacenter:
                 dc = self.get_datacenters()
-                nodes = [k for k,v in dc.items() if v==datacenter]
+                nodes = [k for k,v in dc.iteritems() if v==datacenter]
                 
             for node in nodes:
                 vms = self._get_managed_objects(MORTypes.VirtualMachine,
                                                       from_mor=node)
-                for k,v in vms.items():
+                for k,v in vms.iteritems():
                     if v == name:
                         return VIVirtualMachine(self, k)
         except (VI.ZSI.FaultException), e:
@@ -313,6 +315,13 @@ class VIServer:
     def get_api_version(self):
         """Returns a string containing a the vSphere API version: E.g: '4.1' """
         return self.__api_version
+
+    def get_api_type(self):
+        """Returns a string containing a the api type. Either:
+            'VirtualCenter': For a VirtualCenter instance.
+            'HostAgent': For host agent on an ESX Server or VMware Server host.
+        """
+        return self.__api_type
 
     def get_registered_vms(self, datacenter=None, cluster=None, 
                            resource_pool=None, status=None,
@@ -339,7 +348,7 @@ class VIServer:
             if status:
                 advanced_filters['runtime.powerState'] = [status]
         
-            property_filter = advanced_filters.keys()
+            property_filter = list(advanced_filters.iterkeys())
             
             if not 'config.files.vmPathName' in property_filter:
                 property_filter.insert(0, 'config.files.vmPathName')
@@ -350,17 +359,17 @@ class VIServer:
             if resource_pool and VIMor.is_mor(resource_pool):
                 nodes = [resource_pool]
             elif resource_pool:
-                nodes = [k for k,v in self.get_resource_pools().items()
+                nodes = [k for k,v in self.get_resource_pools().iteritems()
                          if v==resource_pool]
             elif cluster and VIMor.is_mor(cluster):
                 nodes = [cluster]
             elif cluster:
-                nodes = [k for k,v in self.get_clusters().items() 
+                nodes = [k for k,v in self.get_clusters().iteritems() 
                         if v==cluster]
             elif datacenter and VIMor.is_mor(datacenter):
                 nodes = [datacenter]
             elif datacenter:
-                nodes = [k for k,v in self.get_datacenters().items()
+                nodes = [k for k,v in self.get_datacenters().iteritems()
                         if v==datacenter]
 
             for node in nodes:
@@ -378,7 +387,7 @@ class VIServer:
                     
                     ppath = None
                     filter_match = dict([(k, False) 
-                                         for k in advanced_filters.keys()])
+                                         for k in advanced_filters.iterkeys()])
                     
                     for item in prop_set:
                         if item.Name == 'config.files.vmPathName':
@@ -472,7 +481,7 @@ class VIServer:
             spec_set = request.new_specSet()
 
             prop_sets = []
-            for mo_type, path_set in properties.items():
+            for mo_type, path_set in properties.iteritems():
                 prop_set = spec_set.new_propSet()
                 prop_set.set_element_type(mo_type)
                 if path_set:
@@ -750,7 +759,7 @@ class VIServer:
                       DeprecationWarning)
         
         ret = self.get_clusters()
-        return dict([(v,k) for k,v in ret.items()])
+        return dict([(v,k) for k,v in ret.iteritems()])
     
     def _get_datacenters(self, from_cache=True):
         """DEPRECATED: use get_datacenters instead."""
@@ -761,7 +770,7 @@ class VIServer:
                       DeprecationWarning)
 
         ret = self.get_datacenters()
-        return dict([(v,k) for k,v in ret.items()])
+        return dict([(v,k) for k,v in ret.iteritems()])
     
     def _get_resource_pools(self, from_cache=True):
         """DEPRECATED: use get_resource_pools instead."""
@@ -772,4 +781,4 @@ class VIServer:
                       DeprecationWarning)
 
         ret = self.get_resource_pools()
-        return dict([(v,k) for k,v in ret.items()])     
+        return dict([(v,k) for k,v in ret.iteritems()])     

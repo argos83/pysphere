@@ -3,7 +3,7 @@
 '''Typecodes for numbers.
 '''
 
-from pysphere.ZSI import _copyright, _inttypes, _floattypes, _seqtypes, \
+from pysphere.ZSI import _inttypes, _floattypes, _seqtypes, \
         EvaluateException
 from pysphere.ZSI.TC import TypeCode, Integer, Decimal
 from pysphere.ZSI.wstools.Namespaces import SCHEMA
@@ -178,5 +178,3 @@ class FPEnumeration(FPfloat):
             raise EvaluateException('Value not in int enumeration list')
         Decimal.serialize(self, elt, sw, pyobj, name=name, orig=orig, **kw)
 
-
-if __name__ == '__main__': print _copyright

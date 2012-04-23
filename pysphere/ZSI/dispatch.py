@@ -8,7 +8,7 @@ from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 from pysphere.ZSI import TC, EvaluateException, FaultFromZSIException, \
     SoapWriter, Fault, FaultFromException, UNICODE_ENCODING, ParsedSoap, \
     ParseException
-from pysphere.ZSI import _child_elements, _copyright, _seqtypes, _find_arraytype, _find_type, resolvers
+from pysphere.ZSI import _child_elements, _seqtypes, _find_arraytype, _find_type, resolvers
 from pysphere.ZSI.auth import ClientBinding
 
 
@@ -59,7 +59,7 @@ def _Dispatch(ps, modules, SendResponse, SendFault, nsdict={}, typesmodule=None,
         if len(handlers) == 0:
             raise TypeError("Unimplemented method " + what)
         if len(handlers) > 1:
-            raise TypeError("Multiple implementations found: " + `handlers`)
+            raise TypeError("Multiple implementations found: %s" % handlers)
         handler = handlers[0]
 
         _client_binding = ClientBinding(ps)
@@ -296,5 +296,3 @@ def AsJonPy(request=None, modules=None, **kw):
         return
     _Dispatch(ps, modules, _JonPySendXML, _JonPySendFault, **kw)
 
-
-if __name__ == '__main__': print _copyright

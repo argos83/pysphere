@@ -25,7 +25,7 @@ class VIPropertyTest(TestCase):
 
     def test_property_types(self):
         hosts = self.server.get_hosts()
-        for hmor, hname in hosts.items():
+        for hmor, hname in hosts.iteritems():
             p = VIProperty(self.server, hmor)
             assert p.name == hname
             #string
@@ -43,7 +43,8 @@ class VIPropertyTest(TestCase):
             #traversing
             assert isinstance(p.vm[0].name, basestring)
             #enum
-            assert p.runtime.powerState in ['poweredOff', 'poweredOn', 'standBy', 'unknown']
+            assert p.runtime.powerState in ['poweredOff', 'poweredOn',
+                                            'standBy', 'unknown']
             #int
             assert isinstance(p.summary.config.port, int)
             #long

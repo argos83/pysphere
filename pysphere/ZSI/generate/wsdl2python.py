@@ -78,7 +78,7 @@ class WriteServiceModule:
         """
         name = GetModuleBaseNameFromWSDL(self._wsdl)
         if not name:
-            raise WsdlGeneratorError, 'could not determine a service name'
+            raise WsdlGeneratorError('could not determine a service name')
 
         if self.client_module_suffix is None:
             return name
@@ -109,7 +109,7 @@ class WriteServiceModule:
 
         name = GetModuleBaseNameFromWSDL(self._wsdl)
         if not name:
-            raise WsdlGeneratorError, 'could not determine a service name'
+            raise WsdlGeneratorError('could not determine a service name')
 
         if self.types_module_suffix is None:
             return name
@@ -157,7 +157,7 @@ class WriteServiceModule:
 
         # Add all schemas defined in wsdl
         # to used namespace and to the Alias dict
-        for schema in self._wsdl.types.values():
+        for schema in self._wsdl.types.itervalues():
             tns = schema.getTargetNamespace()
             self.logger.debug('Register schema(%s) -- TNS(%s)'\
                 %(_get_idstr(schema), tns),)
@@ -168,7 +168,7 @@ class WriteServiceModule:
 
         # Add all xsd:import schema instances
         # to used namespace and to the Alias dict
-        for k,v in SchemaReader.namespaceToSchema.items():
+        for k,v in SchemaReader.namespaceToSchema.iteritems():
             self.logger.debug('Register schema(%s) -- TNS(%s)'\
                 %(_get_idstr(v), k),)
             if k not in self.usedNamespaces:
@@ -281,7 +281,7 @@ class ServiceDescription:
         self.locator.setUp(service)
 
         try:
-            bindings =  map(lambda p: p.binding, service.ports)
+            bindings =  [p.binding for p in service.ports]
         except:
             warnings.warn('not all ports have binding declared,')
             bindings = ()
@@ -359,7 +359,7 @@ class MessageWriter:
 
     def __str__(self):
         if not self.content:
-            raise Wsdl2PythonError, 'Must call setUp.'
+            raise Wsdl2PythonError('Must call setUp.')
         return self.content.getvalue()
 
     def setUp(self, soc, port, input=False):
@@ -379,7 +379,7 @@ class MessageWriter:
         elif rpc and not literal:
             klass = ServiceRPCEncodedMessageContainer
         else:
-            raise WsdlGeneratorError, 'doc/enc not supported.'
+            raise WsdlGeneratorError('doc/enc not supported.')
 
         self.content = klass(**kw)
         self.content.setUp(port, soc, input)
@@ -454,7 +454,7 @@ class SchemaItemWriter:
         return str(self.content)
 
     def fromSchemaItem(self, item):
-        raise NotImplementedError, ''
+        raise NotImplementedError('')
 
 
 class ElementWriter(SchemaItemWriter):
@@ -465,7 +465,7 @@ class ElementWriter(SchemaItemWriter):
         """set up global elements.
         """
         if item.isElement() is False or item.isLocal() is True:
-            raise TypeError, 'expecting global element declaration: %s' %item.getItemTrace()
+            raise TypeError('expecting global element declaration: %s' %item.getItemTrace())
 
         local = False
         qName = item.getAttribute('type')
@@ -487,7 +487,7 @@ class ElementWriter(SchemaItemWriter):
         elif etp.isComplex():
             self.content = ElementLocalComplexTypeContainer(do_extended=self.do_extended)
         else:
-            raise Wsdl2PythonError, "Unknown element declaration: %s" %item.getItemTrace()
+            raise Wsdl2PythonError("Unknown element declaration: %s" %item.getItemTrace())
 
         self.logger.debug('ElementWriter setUp container "%r", Schema Item "%s"' %(
             self.content, item.getItemTrace()))
@@ -501,8 +501,8 @@ class TypeWriter(SchemaItemWriter):
 
     def fromSchemaItem(self, item):
         if item.isDefinition() is False or item.isLocal() is True:
-            raise TypeError, \
-                'expecting global type definition not: %s' %item.getItemTrace()
+            raise TypeError(
+                'expecting global type definition not: %s' %item.getItemTrace())
 
         self.content = None
         if item.isSimple():
@@ -513,8 +513,8 @@ class TypeWriter(SchemaItemWriter):
             elif item.content.isList():
                 self.content = ListContainer()
             else:
-                raise Wsdl2PythonError,\
-                    'unknown simple type definition: %s' %item.getItemTrace()
+                raise Wsdl2PythonError(
+                    'unknown simple type definition: %s' %item.getItemTrace())
 
             self.content.setUp(item)
             return
@@ -536,8 +536,8 @@ class TypeWriter(SchemaItemWriter):
                             do_extended=self.do_extended
                             )
             else:
-                raise Wsdl2PythonError,\
-                    'unknown complex type definition: %s' %item.getItemTrace()
+                raise Wsdl2PythonError(
+                    'unknown complex type definition: %s' %item.getItemTrace())
 
             self.logger.debug('TypeWriter setUp container "%r", Schema Item "%s"' %(
                 self.content, item.getItemTrace()))
@@ -552,8 +552,8 @@ class TypeWriter(SchemaItemWriter):
 
             return
 
-        raise TypeError,\
-            'expecting SimpleType or ComplexType: %s' %item.getItemTrace()
+        raise TypeError(
+            'expecting SimpleType or ComplexType: %s' %item.getItemTrace())
 
 
 

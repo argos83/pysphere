@@ -3,7 +3,7 @@
 
 ident = "$Id$"
 
-import WSDLTools
-import XMLname
-import logging
+from pysphere.ZSI.wstools import logging
+from pysphere.ZSI.wstools import WSDLTools
+from pysphere.ZSI.wstools import XMLname
 

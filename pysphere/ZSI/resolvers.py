@@ -3,7 +3,7 @@
 '''SOAP messaging parsing.
 '''
 
-from pysphere.ZSI import _copyright, _child_elements, EvaluateException, TC
+from pysphere.ZSI import _child_elements, EvaluateException, TC
 import multifile, mimetools, urllib
 import cStringIO as StringIO
 
@@ -142,5 +142,3 @@ class MIMEResolver:
         _, body = self.id_dict[cid]
         newio = StringIO.StringIO(body.getvalue())
         return newio
-
-if __name__ == '__main__': print _copyright

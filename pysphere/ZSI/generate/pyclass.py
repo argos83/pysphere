@@ -11,9 +11,9 @@ def _x(): return
 try:
     _x.func_name = '_y'
 except:
-    raise RuntimeError,\
-        'use python-2.4 or later, cannot set function names in python "%s"'\
-        %sys.version
+    raise RuntimeError(
+        'use python-2.4 or later, cannot set function names in python "%s"'
+        %sys.version)
 del _x
 
 
@@ -80,12 +80,10 @@ class pyclass_type(type):
                 get,_set = cls.__create_text_functions_from_what(typecode)
 
                 if get.__name__ in classdict:
-                    raise AttributeError,\
-                        'attribute %s previously defined.' %get.__name__
+                    raise AttributeError('attribute %s previously defined.' %get.__name__)
 
                 if _set.__name__ in classdict:
-                    raise AttributeError,\
-                        'attribute %s previously defined.' %_set.__name__
+                    raise AttributeError('attribute %s previously defined.' %_set.__name__)
 
                 classdict[get.__name__] = get
                 classdict[_set.__name__] = _set
@@ -94,20 +92,16 @@ class pyclass_type(type):
                 get,_set,new_func = cls.__create_functions_from_what(what)
 
                 if get.__name__ in  classdict:
-                    raise AttributeError,\
-                        'attribute %s previously defined.' %get.__name__
+                    raise AttributeError('attribute %s previously defined.' %get.__name__)
 
                 classdict[get.__name__] = get
                 if _set.__name__ in classdict:
-                    raise AttributeError,\
-                        'attribute %s previously defined.' %_set.__name__
+                    raise AttributeError('attribute %s previously defined.' %_set.__name__)
 
                 classdict[_set.__name__] = _set
                 if new_func is not None:
                     if new_func.__name__ in classdict:
-                        raise AttributeError,\
-                            'attribute %s previously defined.' %new_func.__name__
-
+                        raise AttributeError('attribute %s previously defined.' %new_func.__name__)
                     classdict[new_func.__name__] = new_func
 
                 assert what.pname not in classdict,\
@@ -133,7 +127,7 @@ class pyclass_type(type):
         #
         if hasattr(typecode, 'attribute_typecode_dict'):
             attribute_typecode_dict = typecode.attribute_typecode_dict or {}
-            for key,what in attribute_typecode_dict.items():
+            for key,what in attribute_typecode_dict.iteritems():
                 get,_set = cls.__create_attr_functions_from_what(key, what)
                 if get.__name__ in classdict:
                     raise AttributeError,\
@@ -156,7 +150,7 @@ class pyclass_type(type):
             if what.maxOccurs > 1:
                 def _set(self, value):
                     if not (value is None or hasattr(value, '__iter__')):
-                        raise TypeError, 'expecting an iterable instance'
+                        raise TypeError('expecting an iterable instance')
                     setattr(self, what.aname, value)
             else:
                 def _set(self, value):

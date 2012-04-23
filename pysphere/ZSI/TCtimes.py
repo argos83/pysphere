@@ -3,7 +3,7 @@
 '''Typecodes for dates and times.
 '''
 
-from pysphere.ZSI import _copyright, _floattypes, _inttypes, EvaluateException
+from pysphere.ZSI import _floattypes, _inttypes, EvaluateException
 from pysphere.ZSI.TC import SimpleType
 from pysphere.ZSI.wstools.Namespaces import SCHEMA
 import operator, re, time as _time
@@ -80,7 +80,7 @@ def _tz_to_tzinfo(tz):
     if not tz:
         return _localtimezone()
     if tz == "Z": tz = "+00:00"
-    h, m = map(int, tz.split(':'))
+    h, m = [int(x) for x in tz.split(':')]
     if h < 0: m = -m
     return _fixedoffset(60 * h + m)
 
@@ -134,7 +134,7 @@ def _dict_to_tuple(d):
         retval[6],retval[5] = int(round(msec*1000)), int(sec)
 
     if d.get('neg', 0):
-        retval[0:5] = map(lambda x: (x is not None or x) and operator.__neg__(x), retval[0:5])
+        retval[0:5] = [(x is not None or x) and operator.__neg__(x) for x in retval[0:5]]
 
     return tuple(retval)
 
@@ -175,8 +175,8 @@ class Duration(SimpleType):
             pyobj = _gmtime(pyobj)
 
         pyobj = tuple(pyobj)
-        if 1 in map(lambda x: x < 0, pyobj[0:6]):
-            pyobj = map(abs, pyobj)
+        if 1 in [x < 0 for x in pyobj[0:6]]:
+            pyobj = [abs(y) for y in pyobj]
             neg = '-'
         else:
             neg = ''
@@ -225,8 +225,8 @@ class Gregorian(SimpleType):
 
         d = {}
         pyobj = tuple(pyobj)
-        if 1 in map(lambda x: x < 0, pyobj[0:6]):
-            pyobj = map(abs, pyobj)
+        if 1 in [x < 0 for x in pyobj[0:6]]:
+            pyobj = [abs(y) for y in pyobj]
             d['neg'] = '-'
         else:
             d['neg'] = ''
@@ -240,7 +240,7 @@ class Gregorian(SimpleType):
             return self.format % d
 
         if  ms > 999:
-            raise ValueError, 'milliseconds must be a integer between 0 and 999'
+            raise ValueError('milliseconds must be a integer between 0 and 999')
 
         d['ms'] = ms
         return self.format_ms % d
@@ -331,5 +331,3 @@ class gTime(Gregorian):
     format_ms = format[:-1] + '.%(ms)03dZ'
     type = (SCHEMA.XSD3, 'time')
     fix_timezone = True
-
-if __name__ == '__main__': print _copyright

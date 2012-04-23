@@ -11,9 +11,9 @@ ident = "$Id$"
 
 import weakref
 from cStringIO import StringIO
-from Namespaces import XMLNS, WSA, WSA_LIST, WSAW_LIST, WSRF_V1_2, WSRF
-from Utility import Collection, CollectionNS, DOM, ElementProxy, basejoin
-from XMLSchema import SchemaReader, WSDLToolsAdapter
+from pysphere.ZSI.wstools.Namespaces import XMLNS, WSA, WSA_LIST, WSAW_LIST, WSRF_V1_2, WSRF
+from pysphere.ZSI.wstools.Utility import Collection, CollectionNS, DOM, ElementProxy, basejoin
+from pysphere.ZSI.wstools.XMLSchema import SchemaReader, WSDLToolsAdapter
 
 
 class WSDLReader:
@@ -352,7 +352,7 @@ class WSDL:
                 parent.appendChild(child)
                 child.setAttribute('targetNamespace', namespace)
                 attrsNS = imported._attrsNS
-                for attrkey in attrsNS.keys():
+                for attrkey in attrsNS.iterkeys():
                     if attrkey[0] == DOM.NS_XMLNS:
                         attr = attrsNS[attrkey].cloneNode(1)
                         child.setAttributeNode(attr)
@@ -1517,12 +1517,12 @@ def callInfoFromWSDL(port, name):
 
     addrbinding = port.getAddressBinding()
     if not isinstance(addrbinding, SoapAddressBinding):
-        raise ValueError, 'Unsupported binding type.'        
+        raise ValueError('Unsupported binding type.')        
     callinfo.location = addrbinding.location
 
     soapbinding = binding.findBinding(SoapBinding)
     if soapbinding is None:
-        raise ValueError, 'Missing soap:binding element.'
+        raise ValueError('Missing soap:binding element.')
     callinfo.transport = soapbinding.transport
     callinfo.style = soapbinding.style or 'document'
 
@@ -1537,7 +1537,7 @@ def callInfoFromWSDL(port, name):
 
         mime = msgrole.findBinding(MimeMultipartRelatedBinding)
         if mime is not None:
-            raise ValueError, 'Mime bindings are not supported.'
+            raise ValueError('Mime bindings are not supported.')
         else:
             for item in msgrole.findBindings(SoapHeaderBinding):
                 part = messages[item.message].parts[item.part]
@@ -1551,7 +1551,7 @@ def callInfoFromWSDL(port, name):
 
             body = msgrole.findBinding(SoapBodyBinding)
             if body is None:
-                raise ValueError, 'Missing soap:body binding.'
+                raise ValueError('Missing soap:body binding.')
             callinfo.encodingStyle = body.encodingStyle
             callinfo.namespace = body.namespace
             callinfo.use = body.use
@@ -1561,7 +1561,7 @@ def callInfoFromWSDL(port, name):
                 for name in body.parts:
                     parts.append(message.parts[name])
             else:
-                parts = message.parts.values()
+                parts = message.parts.itervalues()
 
             for part in parts:
                 callinfo.addInParameter(
@@ -1584,7 +1584,7 @@ def callInfoFromWSDL(port, name):
 
         mime = msgrole.findBinding(MimeMultipartRelatedBinding)
         if mime is not None:
-            raise ValueError, 'Mime bindings are not supported.'
+            raise ValueError('Mime bindings are not supported.')
         else:
             for item in msgrole.findBindings(SoapHeaderBinding):
                 part = messages[item.message].parts[item.part]
@@ -1598,7 +1598,7 @@ def callInfoFromWSDL(port, name):
 
             body = msgrole.findBinding(SoapBodyBinding)
             if body is None:
-                raise ValueError, 'Missing soap:body binding.'
+                raise ValueError('Missing soap:body binding.')
             callinfo.encodingStyle = body.encodingStyle
             callinfo.namespace = body.namespace
             callinfo.use = body.use
@@ -1608,14 +1608,13 @@ def callInfoFromWSDL(port, name):
                 for name in body.parts:
                     parts.append(message.parts[name])
             else:
-                parts = message.parts.values()
+                parts = message.parts.itervalues()
 
-            if parts:
-                for part in parts:
-                    callinfo.addOutParameter(
-                        part.name,
-                        part.element or part.type,
-                        element_type = part.element and 1 or 0
-                        )
+            for part in parts:
+                callinfo.addOutParameter(
+                    part.name,
+                    part.element or part.type,
+                    element_type = part.element and 1 or 0
+                    )
 
     return callinfo
