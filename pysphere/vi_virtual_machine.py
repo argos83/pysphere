@@ -402,20 +402,39 @@ class VIVirtualMachine:
     #-- CLONE VM --#
     #--------------#
     def clone(self, name, sync_run=True, folder=None, resourcepool=None,
-              power_on=True, template=False):
+              power_on=True, template=False, datastore=None, snapshot=None,
+              linked=False):
         """Clones this Virtual Machine
         @name: name of the new virtual machine
         @folder: name of the folder that will contain the new VM, if not set
-                 the vm will be added to the folder the original VM belongs to
+            the vm will be added to the folder the original VM belongs to
         @resourcepool: MOR of the resourcepool to be used for the new vm. 
-                 If not set, it uses the same resourcepool than the original vm.
+            If not set, it uses the same resourcepool than the original vm.
         @power_on: If the new VM will be powered on after being created
         @sync_run: if True (default) waits for the task to finish, and returns
-        a VIVirtualMachine instance with the new VM (raises an exception if the
-        task didn't succeed). If sync_run is set to False the task is started
-        and a VITask instance is returned
+            a VIVirtualMachine instance with the new VM (raises an exception if 
+        the task didn't succeed). If sync_run is set to False the task is 
+        started and a VITask instance is returned
         @template: Specifies whether or not the new virtual machine should be 
-        marked as a template. 
+            marked as a template.
+        @datastore: MOR of the datastore where the virtual machine
+            should be located. If not specified, the current datastore is used. 
+        @snapshot: Snaphot MOR, or VISnaphost object, or snapshot name (if a
+            name is given, then the first matching occurrence will be used). 
+            Is the snapshot reference from which to base the clone. If this 
+            parameter is set, the clone is based off of the snapshot point. This 
+            means that the newly created virtual machine will have the same 
+            configuration as the virtual machine at the time the snapshot was 
+            taken. If this parameter is not set then the clone is based off of 
+            the virtual machine's current configuration.
+        @linked: If True (requires @snapshot to be set) creates a new child disk
+            backing on the destination datastore. None of the virtual disk's 
+            existing files should be moved from their current locations.
+            Note that in the case of a clone operation, this means that the 
+            original virtual machine's disks are now all being shared. This is
+            only safe if the clone was taken from a snapshot point, because 
+            snapshot points are always read-only. Thus for a clone this option 
+            is only valid when cloning from a snapshot
         """
         try:
             #get the folder to create the VM
@@ -456,7 +475,36 @@ class VIVirtualMachine:
                 pool = location.new_pool(resourcepool)
                 pool.set_attribute_type(resourcepool.get_attribute_type())
                 location.set_element_pool(pool)
-            spec.set_element_location(location)
+            
+            if datastore:
+                if not VIMor.is_mor(datastore):
+                    datastore = VIMor(datastore, MORTypes.Datastore)
+                ds = location.new_datastore(datastore)
+                ds.set_attribute_type(datastore.get_attribute_type())
+                location.set_element_datastore(ds)
+  
+            if snapshot:
+                sn_mor = None
+                if VIMor.is_mor(snapshot):
+                    sn_mor = snapshot
+                elif isinstance(snapshot, VISnapshot):
+                    sn_mor = snapshot._mor
+                elif isinstance(snapshot, basestring):
+                    for sn in self.get_snapshots():
+                        if sn.get_name() == snapshot:
+                            sn_mor = sn._mor
+                            break
+                if not sn_mor:
+                    raise VIException("Could not find snapshot '%s'" % snapshot,
+                                      FaultTypes.OBJECT_NOT_FOUND) 
+                snapshot = spec.new_snapshot(sn_mor)
+                snapshot.set_attribute_type(sn_mor.get_attribute_type())
+                spec.set_element_snapshot(snapshot)
+            
+            if linked and snapshot:
+                location.set_element_diskMoveType("createNewChildDiskBacking")
+                
+            spec.set_element_location(location)    
             spec.set_element_template(template)
             request.set_element_spec(spec)
             task = self._server._proxy.CloneVM_Task(request)._returnval
