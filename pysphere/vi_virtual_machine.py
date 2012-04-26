@@ -410,7 +410,8 @@ class VIVirtualMachine:
             the vm will be added to the folder the original VM belongs to
         @resourcepool: MOR of the resourcepool to be used for the new vm. 
             If not set, it uses the same resourcepool than the original vm.
-        @power_on: If the new VM will be powered on after being created
+        @power_on: If the new VM will be powered on after being created. If
+            template is set to True, this parameter is ignored.
         @sync_run: if True (default) waits for the task to finish, and returns
             a VIVirtualMachine instance with the new VM (raises an exception if 
         the task didn't succeed). If sync_run is set to False the task is 
@@ -467,7 +468,10 @@ class VIVirtualMachine:
             request.set_element_folder(folder_mor)
             request.set_element_name(name)
             spec = request.new_spec()
-            spec.set_element_powerOn(power_on)
+            if template:
+                spec.set_element_powerOn(False)
+            else:
+                spec.set_element_powerOn(power_on)
             location = spec.new_location()
             if resourcepool:
                 if not VIMor.is_mor(resourcepool):
