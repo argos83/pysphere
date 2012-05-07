@@ -99,6 +99,12 @@ class VIVirtualMachineTest(TestCase):
         assert vm.is_powered_off()
         assert not(vm.is_powered_on() or vm.is_suspended())
 
+    def test_extra_config(self):
+        #just check no exception are raised
+        vm = self.vm_toy
+        vm.set_extra_config({'isolation.tools.diskWiper.disable':'TRUE',
+                             'isolation.tools.diskShrink.disable':'TRUE'})
+
     def test_guest_power_ops(self):
         vm = self.start_vm_with_tools()
         time.sleep(20)

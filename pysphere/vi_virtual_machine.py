@@ -1459,6 +1459,49 @@ class VIVirtualMachine:
                 if prop.Name == 'name':
                     return prop.Val
 
+    
+    def set_extra_config(self, settings, sync_run=True):
+        """Sets the advanced configuration settings (as the ones on the .vmx
+        file).
+          * settings: a key-value pair dictionary with the settings to 
+            set/change
+          * sync_run: if True (default) waits for the task to finish and returns
+            (raises an exception if the task didn't succeed). If False the task 
+            is started and a VITask instance is returned
+        E.g.:
+            #prevent virtual disk shrinking
+            vm.set_extra_config({'isolation.tools.diskWiper.disable':'TRUE',
+                                 'isolation.tools.diskShrink.disable':'TRUE'})
+        """
+        try:
+            request = VI.ReconfigVM_TaskRequestMsg()
+            _this = request.new__this(self._mor)
+            _this.set_attribute_type(self._mor.get_attribute_type())
+            request.set_element__this(_this)
+    
+            spec = request.new_spec()
+            extra_config = []
+            for k,v in settings.iteritems():
+                ec = spec.new_extraConfig()
+                ec.set_element_key(str(k))
+                ec.set_element_value(str(v))
+                extra_config.append(ec)
+            spec.set_element_extraConfig(extra_config)
+    
+            request.set_element_spec(spec)
+            task = self._server._proxy.ReconfigVM_Task(request)._returnval
+            vi_task = VITask(task, self._server)
+            if sync_run:
+                status = vi_task.wait_for_state([vi_task.STATE_SUCCESS,
+                                                 vi_task.STATE_ERROR])
+                if status == vi_task.STATE_ERROR:
+                    raise VIException(vi_task.get_error_message(),
+                                      FaultTypes.TASK_ERROR)
+                return
+            return vi_task
+        except (VI.ZSI.FaultException), e:
+            raise VIApiException(e)
+
     #---------------------#
     #-- PRIVATE METHODS --#
     #---------------------#
