@@ -30,6 +30,7 @@
 import time
 
 from pysphere import VIException, FaultTypes, VIApiException
+from pysphere.vi_property import VIProperty
 from pysphere.resources import VimService_services as VI
 
 class VITask:
@@ -42,14 +43,18 @@ class VITask:
     def __init__(self, mor, server):
         self._mor = mor
         self._server = server
-        self._task_info = None
+        self.info = None
 
+    def get_info(self):
+        """Returns a VIProperty object with information of this task"""
+        self.__poll_task_info()
+        return self.info
+    
     def get_state(self):
         """Returns the current state of the task"""
-        
         self.__poll_task_info()
-        if self._task_info:
-            return self._task_info.State
+        if hasattr(self.info, "state"):
+            return self.info.state
 
     def wait_for_state(self, states, check_interval=2, timeout=-1):
         """Waits for the task to be in any of the given states
@@ -57,8 +62,8 @@ class VITask:
         Raises an exception if @timeout is reached
         If @timeout is 0 or negative, waits indefinitely"""
         
-        if type(states).__name__ != 'list':
-            states = [str(states)]
+        if not isinstance(states, list):
+            states = [states]
         start_time = time.clock()
         while True:
             cur_state = self.get_state()
@@ -74,22 +79,23 @@ class VITask:
 
     def get_error_message(self):
         """If the task finished with error, returns the related message"""
-        
-        if self._task_info and self._task_info.Error.LocalizedMessage:
-            return self._task_info.Error.LocalizedMessage
+        self.__poll_task_info()
+        if hasattr(self.info, "error") and hasattr(self.info.error, 
+                                                   "localizedMessage"):
+            return self.info.error.localizedMessage
 
     def get_result(self):
         "Returns the task result (if any) if it has successfully finished"
-        
-        if self._task_info and hasattr(self._task_info, "Result"):
-            return self._task_info.Result
+        self.__poll_task_info()
+        if hasattr(self.info, "result"):
+            return self.info.result
 
     def get_progress(self):
         """Returns a progress from 0 to 100 if the task is running and has
         available progress info, returns None otherwise"""
         self.__poll_task_info()
-        if self._task_info and hasattr(self._task_info, "Progress"):
-            return self._task_info.Progress
+        if hasattr(self.info, "progress"):
+            return self.info.progress
 
     def cancel(self):
         """Attempts to cancel this task"""
@@ -107,16 +113,8 @@ class VITask:
     def __poll_task_info(self, retries=3, interval=2):
         for i in range(retries):
             try:
-                object_content = self._server._get_object_properties(
-                                                        self._mor, get_all=True)
-                if not object_content:
-                    raise Exception("Couldn't retrieve object properties")
-
-                properties = object_content.PropSet
-                for prop in properties:
-                    if prop.Name == 'info':
-                        self._task_info = prop.Val
-                        return True
+                self.info = VIProperty(self._server, self._mor).info
+                return True
             except Exception, e:
                 if i == retries -1:
                     raise e

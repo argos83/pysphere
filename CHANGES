@@ -33,3 +33,4 @@ Roadmap for in 0.1.7
 - Changes in ZSI framework to ease portability to python 3
 - Allow to clone from snapshot, shared disks, and select destination datastore
 - Add set_extra_settings method to VIVirtualMachine to configure advanced key-value options
+- Added VITaskHistoryCollector class, to navigate through tasks objects in vCenter servers
