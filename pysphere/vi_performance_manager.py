@@ -161,8 +161,9 @@ class PerformanceManager:
                                 interval_id=sampling_period)
 
         statistics = []
-        if not query:
+        if not query or not hasattr(query[0], "Value"):
             return statistics
+        
         for stat in query[0].Value:
             cname, cdesc, gname, gdesc, uname, udesc = self._get_counter_info(
                                                   stat.Id.CounterId,counter_obj)
@@ -180,10 +181,17 @@ class PerformanceManager:
         """Given an interval ID (or None for refresh rate) verifies if
         the entity or the system supports that interval. Returns the sampling
         period if so, or raises an Exception if not supported"""
-        
         summary = self.query_perf_provider_summary(entity)
         if not interval: #must support current (real time) statistics
             if not summary.CurrentSupported:
+                
+                #Here the following exception should be raised, however,
+                #some objects as datastores can retrieve metrics even though
+                #current metrics are not supported, and refreshRate isn't set.
+                #So if thi is the case, I'll just return None.
+                #For more details see:
+                #http://communities.vmware.com/message/1623870#1623870
+                return None
                 raise UnsupportedPerfIntervalError(
                                   "Current statistics not supported for this "
                                   "entity. Try using an historical interval " 
@@ -250,7 +258,7 @@ class PerformanceManager:
             if begin_time:
                 request.set_element_beginTime(begin_time)
             if end_time:
-                request.set_element_endTime(end_time)
+                request.set_element_endTime(end_time)              
             if interval_id:
                 request.set_element_intervalId(interval_id)
 
