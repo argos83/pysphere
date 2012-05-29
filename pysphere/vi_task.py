@@ -64,14 +64,14 @@ class VITask:
         
         if not isinstance(states, list):
             states = [states]
-        start_time = time.clock()
+        start_time = time.time()
         while True:
             cur_state = self.get_state()
             if cur_state in states:
                 return cur_state
 
             if timeout > 0:
-                if (time.clock() - start_time) > timeout:
+                if (time.time() - start_time) > timeout:
                     raise VIException("Timed out waiting for task state.", 
                                       FaultTypes.TIME_OUT)
 

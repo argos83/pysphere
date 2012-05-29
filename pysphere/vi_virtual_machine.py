@@ -912,13 +912,13 @@ class VIVirtualMachine:
         """Waits for the VMWare tools to be running in the guest. Or for the
         timeout in seconds to expire. If timed out a VIException is thrown"""
         timeout = abs(int(timeout))
-        start_time = time.clock()
+        start_time = time.time()
         while True:
             cur_state = self.get_tools_status()
             if cur_state in [ToolsStatus.RUNNING, ToolsStatus.RUNNING_OLD]:
                 return True
 
-            if (time.clock() - start_time) > timeout:
+            if (time.time() - start_time) > timeout:
                 raise VIException(
                               "Timed out waiting for VMware Tools to be ready.",
                               FaultTypes.TIME_OUT)
