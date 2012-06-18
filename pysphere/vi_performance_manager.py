@@ -219,14 +219,14 @@ class PerformanceManager:
         performance statistics that are available for the given time interval.
         entity [mor]: The ManagedObject for which available performance metrics
             are queried.
-        begin_time [dateTime]: The time from which available performance metrics
-            are gathered. Corresponds to server time. When the beginTime is
-            omitted, the returned metrics start from the first available metric
-            in the system.
-        end_time [dateTime]: The time up to which available performance metrics
-            are gathered. Corresponds to server time. When the endTime is
-            omitted, the returned result includes up to the most recent metric
-            value.
+        begin_time [time tuple]: The time from which available performance 
+            metrics are gathered. Corresponds to server time. When the beginTime
+            is omitted, the returned metrics start from the first available
+            metric in the system.
+        end_time [time tuple]: The time up to which available performance
+            metrics are gathered. Corresponds to server time. When the endTime
+            is omitted, the returned result includes up to the most recent
+            metric value.
         interval_id [int]: Specify a particular interval that the query is
             interested in. Acceptable intervals are the refreshRate returned in
             QueryProviderSummary, which is used to retrieve available metrics
@@ -236,14 +236,9 @@ class PerformanceManager:
             system returns available metrics for historical statistics.
         """
         if begin_time:
-            if not isinstance(begin_time, list) or len(begin_time) != 9:
-                raise VIException("begin_time should be a 9 elements list",
-                                  FaultTypes.PARAMETER_ERROR)
             begin_time[6] = 0
+            
         if end_time:
-            if not isinstance(end_time, list) or len(begin_time) != 9:
-                raise VIException("end_time should be a 9 elements list",
-                                  FaultTypes.PARAMETER_ERROR)
             end_time[6] = 0
         try:
             request = VI.QueryAvailablePerfMetricRequestMsg()
@@ -349,7 +344,7 @@ class PerformanceManager:
             provider's refreshRate.
             This argument is ignored for historical statistics.
         metric_id: [PerfMetricId]: The performance metrics to be retrieved.
-        start_time [dateTime]: The time from which statistics are to be
+        start_time [timetuple]: The time from which statistics are to be
             retrieved. Corresponds to server time. When startTime is omitted,
             the returned metrics start from the first available metric in the
             system. When a startTime is specified, the returned samples do not
@@ -367,11 +362,7 @@ class PerformanceManager:
         if metric_id:
             if not isinstance(metric_id, list):
                 raise VIException("metric_id must be a list of integers",
-                                  FaultTypes.PARAMETER_ERROR)
-        if start_time:
-            if not isinstance(start_time, datetime.datetime):
-                raise VIException("start_time must be datetime instance",
-                                  FaultTypes.PARAMETER_ERROR)
+                                  FaultTypes.PARAMETER_ERROR)     
         try:
             request = VI.QueryPerfRequestMsg()
             mor_qp = request.new__this(self._mor)
