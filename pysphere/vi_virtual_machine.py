@@ -401,25 +401,35 @@ class VIVirtualMachine:
     #--------------#
     #-- CLONE VM --#
     #--------------#
-    def clone(self, name, sync_run=True, folder=None, resourcepool=None,
-              power_on=True, template=False, datastore=None, snapshot=None,
-              linked=False):
+    def clone(self, name, sync_run=True, folder=None, resourcepool=None, 
+              datastore=None, host=None, power_on=True, template=False, 
+              snapshot=None, linked=False):
         """Clones this Virtual Machine
         @name: name of the new virtual machine
-        @folder: name of the folder that will contain the new VM, if not set
-            the vm will be added to the folder the original VM belongs to
-        @resourcepool: MOR of the resourcepool to be used for the new vm. 
-            If not set, it uses the same resourcepool than the original vm.
-        @power_on: If the new VM will be powered on after being created. If
-            template is set to True, this parameter is ignored.
         @sync_run: if True (default) waits for the task to finish, and returns
             a VIVirtualMachine instance with the new VM (raises an exception if 
         the task didn't succeed). If sync_run is set to False the task is 
         started and a VITask instance is returned
-        @template: Specifies whether or not the new virtual machine should be 
-            marked as a template.
+        @folder: name of the folder that will contain the new VM, if not set
+            the vm will be added to the folder the original VM belongs to
+        @resourcepool: MOR of the resourcepool to be used for the new vm. 
+            If not set, it uses the same resourcepool than the original vm.
         @datastore: MOR of the datastore where the virtual machine
-            should be located. If not specified, the current datastore is used. 
+            should be located. If not specified, the current datastore is used.
+        @host: MOR of the host where the virtual machine should be registered.
+            IF not specified:
+              * if resourcepool is not specified, current host is used.
+              * if resourcepool is specified, and the target pool represents a
+                stand-alone host, the host is used.
+              * if resourcepool is specified, and the target pool represents a
+                DRS-enabled cluster, a host selected by DRS is used.
+              * if resource pool is specified and the target pool represents a 
+                cluster without DRS enabled, an InvalidArgument exception be
+                thrown.
+        @power_on: If the new VM will be powered on after being created. If
+            template is set to True, this parameter is ignored.
+        @template: Specifies whether or not the new virtual machine should be 
+            marked as a template.         
         @snapshot: Snaphot MOR, or VISnaphost object, or snapshot name (if a
             name is given, then the first matching occurrence will be used). 
             Is the snapshot reference from which to base the clone. If this 
@@ -479,14 +489,18 @@ class VIVirtualMachine:
                 pool = location.new_pool(resourcepool)
                 pool.set_attribute_type(resourcepool.get_attribute_type())
                 location.set_element_pool(pool)
-            
             if datastore:
                 if not VIMor.is_mor(datastore):
                     datastore = VIMor(datastore, MORTypes.Datastore)
                 ds = location.new_datastore(datastore)
                 ds.set_attribute_type(datastore.get_attribute_type())
                 location.set_element_datastore(ds)
-  
+            if host:
+                if not VIMor.is_mor(host):
+                    host = VIMor(host, MORTypes.HostSystem)
+                hs = location.new_host(host)
+                hs.set_attribute_type(host.get_attribute_type())
+                location.set_element_host(hs)
             if snapshot:
                 sn_mor = None
                 if VIMor.is_mor(snapshot):
