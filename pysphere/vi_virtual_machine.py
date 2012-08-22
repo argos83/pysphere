@@ -614,6 +614,59 @@ class VIVirtualMachine:
         except (VI.ZSI.FaultException), e:
             raise VIApiException(e)
         
+    def relocate(self, sync_run=True, priority='default', datastore=None, 
+                 transform=None):
+        """
+        Cold or Hot relocates this virtual machine's virtual disks to a new 
+        datastore.
+        @sync_run: If True (default) waits for the task to finish, and returns 
+                (raises an exception if the task didn't succeed). If False the
+                task is started an a VITask instance is returned.
+        @priority: either 'default', 'high', or 'low': priority of the task that
+                moves the vm. Note this priority can affect both the source and 
+                target hosts.
+        @datastore: The target datastore to which the virtual machine's virtual
+                disks are intended to migrate. 
+        @transform: If specified, the virtual machine's virtual disks are  
+                transformed to the datastore using the specificed method; must 
+                be either 'flat' or 'sparse'.
+        """
+        try:
+            if priority not in ['default', 'low', 'high']:
+                raise VIException(
+                        "priority must be either 'default', 'low', or 'high'.",
+                        FaultTypes.PARAMETER_ERROR)
+            if transform and transform not in [None, 'flat', 'sparse']:
+                raise VIException(
+                        "transform, if set, must be either '%s' or '%s'." 
+                        % ('flat', 'sparse'), FaultTypes.PARAMETER_ERROR)
+            request = VI.RelocateVM_TaskRequestMsg()
+            _this = request.new__this(self._mor)
+            _this.set_attribute_type(self._mor.get_attribute_type())
+            request.set_element__this(_this)
+            spec = request.new_spec()
+            if datastore:
+                if not VIMor.is_mor(datastore):
+                    ds = VIMor(datastore, MORTypes.Datastore)
+                    datastore = spec.new_datastore(ds)
+                    datastore.set_attribute_type(ds.get_attribute_type())
+                spec.set_element_datastore(datastore)
+            if transform:
+                spec.set_element_transform(transform)
+            request.set_element_priority(priority + "Priority")
+            request.set_element_spec(spec)
+            task = self._server._proxy.RelocateVM_Task(request)._returnval
+            vi_task = VITask(task, self._server)
+            if sync_run:
+                status = vi_task.wait_for_state([vi_task.STATE_SUCCESS,
+                                                 vi_task.STATE_ERROR])
+                if status == vi_task.STATE_ERROR:
+                    raise VIException(vi_task.get_error_message(),
+                                      FaultTypes.TASK_ERROR)
+                return
+            return vi_task
+        except (VI.ZSI.FaultException), e:
+            raise VIApiException(e)
 
     #----------------------#
     #-- SNAPSHOT METHODS --#

@@ -29,9 +29,10 @@ Roadmap for in 0.1.7
 - Set connection sockets timeout (works only since python 2.6)
 - added support for historical metrics in performance manager
 - Add get_api_type method to VIServer
-- Several fixes
 - Changes in ZSI framework to ease portability to python 3
 - Allow to clone from snapshot, shared disks, and select destination datastore
 - Add set_extra_settings method to VIVirtualMachine to configure advanced key-value options
 - Added VITaskHistoryCollector class, to navigate through tasks objects in vCenter servers
 - Added optional host parameter to VIVirtualMachine.clone method
+- Added relocate() method to VIVirtualMachine (by Chris Dituri)
+- Several fixes
