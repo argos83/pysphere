@@ -30,6 +30,7 @@
 class VISnapshot:
 
     def __init__(self, snapshot_tree_prop, parent=None):
+        self.properties = snapshot_tree_prop.snapshot
         self._parent = parent
         self._mor = snapshot_tree_prop.snapshot._obj
         self._state = snapshot_tree_prop.state
