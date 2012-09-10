@@ -533,7 +533,7 @@ class VIVirtualMachine:
                 if status == vi_task.STATE_ERROR:
                     raise VIException(vi_task.get_error_message(),
                                       FaultTypes.TASK_ERROR)
-                return VIVirtualMachine(self._server, vi_task.get_result()) 
+                return VIVirtualMachine(self._server, vi_task.get_result()._obj) 
                 
             return vi_task
 
