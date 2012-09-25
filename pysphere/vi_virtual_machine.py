@@ -615,21 +615,32 @@ class VIVirtualMachine:
             raise VIApiException(e)
         
     def relocate(self, sync_run=True, priority='default', datastore=None, 
-                 transform=None):
+                 resource_pool=None, host=None, transform=None):
         """
         Cold or Hot relocates this virtual machine's virtual disks to a new 
         datastore.
         @sync_run: If True (default) waits for the task to finish, and returns 
-                (raises an exception if the task didn't succeed). If False the
-                task is started an a VITask instance is returned.
+          (raises an exception if the task didn't succeed). If False the task is
+          started an a VITask instance is returned.
         @priority: either 'default', 'high', or 'low': priority of the task that
-                moves the vm. Note this priority can affect both the source and 
-                target hosts.
+          moves the vm. Note this priority can affect both the source and target
+          hosts.
         @datastore: The target datastore to which the virtual machine's virtual
-                disks are intended to migrate. 
+          disks are intended to migrate.
+        @resource_pool: The resource pool to which this virtual machine should 
+          be attached. If the argument is not supplied, the current resource 
+          pool of virtual machine is used.
+        @host: The target host for the virtual machine. If not specified,
+          * if resource pool is not specified, current host is used.
+          * if resource pool is specified, and the target pool represents a 
+            stand-alone host, the host is used.
+          * if resource pool is specified, and the target pool represents a
+            DRS-enabled cluster, a host selected by DRS is used.
+          * if resource pool is specified and the target pool represents a 
+            cluster without DRS enabled, an InvalidArgument exception be thrown.           
         @transform: If specified, the virtual machine's virtual disks are  
-                transformed to the datastore using the specificed method; must 
-                be either 'flat' or 'sparse'.
+          transformed to the datastore using the specificed method; must be 
+          either 'flat' or 'sparse'.
         """
         try:
             if priority not in ['default', 'low', 'high']:
@@ -651,6 +662,18 @@ class VIVirtualMachine:
                     datastore = spec.new_datastore(ds)
                     datastore.set_attribute_type(ds.get_attribute_type())
                 spec.set_element_datastore(datastore)
+            if resource_pool:
+                if not VIMor.is_mor(resource_pool):
+                    rp = VIMor(resource_pool, MORTypes.ResourcePool)
+                    resource_pool = spec.new_pool(rp)
+                    resource_pool.set_attribute_type(rp.get_attribute_type())
+                spec.set_element_pool(resource_pool)
+            if host:
+                if not VIMor.is_mor(host):
+                    h = VIMor(host, MORTypes.HostSystem)
+                    host = spec.new_host(h)
+                    host.set_attribute_type(h.get_attribute_type())
+                spec.set_element_host(host)
             if transform:
                 spec.set_element_transform(transform)
             request.set_element_priority(priority + "Priority")
