@@ -125,7 +125,8 @@ class PerformanceManager:
                      for c in counter_obj]) 
         
 
-    def get_entity_statistic(self, entity, counters, interval=None):
+    def get_entity_statistic(self, entity, counters, interval=None,
+                             composite=False):
         """ Get the give statistics from a given managed object
         entity [mor]: ManagedObject Reference of the managed object from were
             statistics are to be retrieved.
@@ -134,6 +135,8 @@ class PerformanceManager:
         interval: None (default) for current real-time statistics, or the
             interval id for historical statistics see IDs available in
             PerformanceManager.INTERVALS
+        composite [bool] (default False) If true, uses QueryPerfComposite
+            instead of QueryPerf.
         """
         sampling_period = self._check_and_get_interval_by_id(entity, interval)
         if not isinstance(counters, list):
@@ -158,13 +161,23 @@ class PerformanceManager:
         if not metric:
             return []
         query = self.query_perf(entity, metric_id=metric, max_sample=1,
-                                interval_id=sampling_period)
+                               interval_id=sampling_period, composite=composite)
 
         statistics = []
-        if not query or not hasattr(query[0], "Value"):
+        if not query:
             return statistics
         
-        for stat in query[0].Value:
+        stats = []
+        if composite:
+            if hasattr(query, "Entity"):
+                stats.extend(query.Entity.Value)
+            if hasattr(query, "ChildEntity"):
+                for item in query.ChildEntity:
+                    stats.extend(item.Value)
+        else:
+            if hasattr(query[0], "Value"):
+                stats = query[0].Value
+        for stat in stats:
             cname, cdesc, gname, gdesc, uname, udesc = self._get_counter_info(
                                                   stat.Id.CounterId,counter_obj)
 
@@ -321,7 +334,8 @@ class PerformanceManager:
             raise VIApiException(e)
 
     def query_perf(self, entity, format='normal', interval_id=None, 
-                   max_sample=None, metric_id=None, start_time=None):
+                   max_sample=None, metric_id=None, start_time=None,
+                   composite=False):
         """Returns performance statistics for the entity. The client can limit
         the returned information by specifying a list of metrics and a suggested
         sample interval ID. Server accepts either the refreshRate or one of the
@@ -349,6 +363,8 @@ class PerformanceManager:
             the returned metrics start from the first available metric in the
             system. When a startTime is specified, the returned samples do not
             include the sample at startTime.
+        composite: [bool]: If true requests QueryPerfComposite method instead of
+            QuerPerf.
         """
 
         if interval_id:
@@ -364,12 +380,14 @@ class PerformanceManager:
                 raise VIException("metric_id must be a list of integers",
                                   FaultTypes.PARAMETER_ERROR)     
         try:
-            request = VI.QueryPerfRequestMsg()
+            if composite:
+                request = VI.QueryPerfCompositeRequestMsg()
+            else:
+                request = VI.QueryPerfRequestMsg()
             mor_qp = request.new__this(self._mor)
             mor_qp.set_attribute_type(self._mor.get_attribute_type())
             request.set_element__this(mor_qp)
 
-            query_spec_set = []
             query_spec = request.new_querySpec()
 
             spec_entity = query_spec.new_entity(entity)
@@ -390,11 +408,14 @@ class PerformanceManager:
                 query_spec.set_element_metricId(metric_id)
             if start_time:
                 query_spec.set_element_startTime(start_time)
-
-            query_spec_set.append(query_spec)
-            request.set_element_querySpec(query_spec_set)
-
-            query_perf = self._server._proxy.QueryPerf(request)._returnval
+            
+            if composite:
+                request.set_element_querySpec(query_spec)
+                query_perf = self._server._proxy.QueryPerfComposite(
+                                                           request)._returnval
+            else:
+                request.set_element_querySpec([query_spec])
+                query_perf = self._server._proxy.QueryPerf(request)._returnval
 
             return query_perf
 
