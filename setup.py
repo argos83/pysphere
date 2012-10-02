@@ -7,7 +7,7 @@ except:
     from distutils.core import setup
 
 
-VERSION = (0, 1, 6)
+VERSION = (0, 1, 7)
 
 
 if __name__ == "__main__":

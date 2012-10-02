@@ -23,7 +23,7 @@ New in 0.1.6
 - Added VIMor class
 - Multithread support
 
-Roadmap for in 0.1.7
+New in 0.1.7
 
 - Advanced filters parameter in VIServer.get_registered_vms
 - Set connection sockets timeout (works only since python 2.6)

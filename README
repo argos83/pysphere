@@ -8,17 +8,19 @@ Visit the project_ site for more information.
 
 .. _project: http://pysphere.googlecode.com
 
-**Among other operations, this api allows the user to:**
+**Among other operations, PySphere provides easy interfaces to:**
 
 - Connect to VMWare's ESX, ESXi, Virtual Center, Virtual Server hosts 
 - Query hosts, datacenters, resource pools, virtual machines
 - VMs: Power on, power off, reset, revert to snapshot, get properties, update 
-  vmware tools
+  vmware tools, clone, migrate.
 - vSphere 5.0 Guest Operations: create/delete/move files and directories.
   upload/download files from the guest system. List/start/stop processes in 
   the guest system.
 - Create and delete snapshots
 - Get hosts statistics and monitor performance
+
+An of course, you can use it to access all the vSphere API through python.
 
 It's built upon a slightly modified version of ZSI_ (that comes bundled-in) 
 which makes it really fast in contrast to other python SOAP libraries that don't
@@ -70,11 +72,17 @@ and the project's wiki_ with the full documentation.
 >>> print vm.get_status()
 POWERED ON
 
+Discussion Group
+----------------
+
+You can find many more examples and use cases in the `discussion group`_
+
+.. _discussion group: http://groups.google.com/group/pysphere
 
 License
 -------
 
-Copyright (c) 2011, Sebastian Tello
+Copyright (c) 2012, Sebastian Tello
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
