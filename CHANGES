@@ -1,6 +1,7 @@
 Roadmap for 0.1.8
 - Added VIManagedEntity class extended by VIVirtualMachine
 - Added Rename, Reload, and Destroy methods to VIManagedEntity
+- Fix #26: VIVirtualMachine.send_file() gratuitiosly overwrites urllib2's installed default opener
 
 New in 0.1.7
 

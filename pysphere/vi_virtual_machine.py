@@ -1237,11 +1237,11 @@ class VIVirtualMachine(VIManagedEntity):
         """
         Initiates an operation to transfer a file to the guest.
           * local_path [string]: The path to the local file to be sent
-          * guest_path [string]: The complete destination path in the guest to 
+          * guest_path [string]: The complete destination path in the guest to
                                  transfer the file from the client. It cannot be
-                                 a path to a directory or a symbolic link. 
+                                 a path to a directory or a symbolic link.
           * overwrite [bool]: Default False, if True the destination file is
-                              clobbered. 
+                              clobbered.
         """
         if not self._file_mgr:
             raise VIException("Files operations not supported on this server",
@@ -1251,14 +1251,14 @@ class VIVirtualMachine(VIManagedEntity):
                               FaultTypes.INVALID_OPERATION)
         import urllib2
         from urlparse import urlparse
-        
+
         if not os.path.isfile(local_path):
             raise VIException("local_path is not a file or does not exists.",
                               FaultTypes.PARAMETER_ERROR)
         fd = open(local_path, "rb")
         content = fd.read()
         fd.close()
-        
+
         try:
             request = VI.InitiateFileTransferToGuestRequestMsg()
             _this = request.new__this(self._file_mgr)
@@ -1272,21 +1272,21 @@ class VIVirtualMachine(VIManagedEntity):
             request.set_element_overwrite(overwrite)
             request.set_element_fileSize(len(content))
             request.set_element_fileAttributes(request.new_fileAttributes())
-            
+
             url = self._server._proxy.InitiateFileTransferToGuest(request
                                                                 )._returnval
-            
+
             url = url.replace("*", urlparse(self._server._proxy.binding.url
                                                                      ).hostname)
-            opener = urllib2.build_opener(urllib2.HTTPHandler)
-            request = urllib2.Request(url, data=content)
-            request.get_method = lambda: 'PUT'
-            resp = opener.open(request)
-            if not resp.code == 200:
-                raise VIException("File could not be send",
-                                  FaultTypes.TASK_ERROR)
         except (VI.ZSI.FaultException), e:
             raise VIApiException(e)
+
+        request = urllib2.Request(url, data=content)
+        request.get_method = lambda: 'PUT'
+        resp = urllib2.urlopen(request)
+        if not resp.code == 200:
+            raise VIException("File could not be send",
+                              FaultTypes.TASK_ERROR)
     
     def move_file(self, src_path, dst_path, overwrite=False):
         """
