@@ -32,15 +32,17 @@ import time
 import os
 
 from pysphere.resources import VimService_services as VI
-from pysphere import VIException, VIApiException, FaultTypes
-from pysphere import VITask, VIProperty, VIMor, MORTypes
+from pysphere import VIProperty, VIMor, MORTypes
+from pysphere.vi_task import VITask
+from pysphere.resources.vi_exception import VIException, VIApiException, \
+                                            FaultTypes
 from pysphere.vi_snapshot import VISnapshot
+from pysphere.vi_managed_entity import VIManagedEntity
 
-class VIVirtualMachine:
+class VIVirtualMachine(VIManagedEntity):
 
     def __init__(self, server, mor):
-        self._server = server
-        self._mor = mor
+        VIManagedEntity.__init__(self, server, mor)
         self._root_snapshots = []
         self._snapshot_list = []
         self._disks = []

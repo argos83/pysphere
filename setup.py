@@ -37,7 +37,7 @@ if __name__ == "__main__":
         author="Sebastian Tello",
         author_email="argos83@gmail.com",
         url="http://pysphere.googlecode.com",
-        download_url="http://pysphere.googlecode.com/files/pysphere-0.1.5.zip",
+        download_url="http://pysphere.googlecode.com/files/pysphere-0.1.7.zip",
         keywords = ["vSphere", "Virtual", "vmware", "ESX", "ESXi",
                     "VirtualCenter", "SDK", "API"],
         classifiers = [

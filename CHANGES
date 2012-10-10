@@ -1,27 +1,6 @@
-
-New in 0.1.5:
-
-- suppor vSphere 5.0
-- added suspend method to VM
-- added quick vm properties for disks and files info
-- implemented VIProperty to access vm objects properties as defined in vSphere API reference
-- Fixed error in get registered vms triggered on empty hosts or with faulty vms
-- Fixed '..' in import statements for compatibility with python 2.4
-- Added VM guest operations: create/delete/rename files and directories, upload/download files, start/stop/list processes
-- FIxed bugs in performance manager
-- FIxes issue in ZSI triggered when parsing dates prior to year 1970
-
-New in 0.1.6
-
-- Added methods to VITask: get_result, get_progress, cancel
-- Added clone method to VIVirtualMachine
-- Added get_question method to VM (returns object with question info and answer method)
-- Fix bug in get_vm_by_path
-- Added method get_datastores in VIServer
-- Fixed issues 3, 4
-- Added method migrate in VIVirtualMachine
-- Added VIMor class
-- Multithread support
+Roadmap for 0.1.8
+- Added VIManagedEntity class extended by VIVirtualMachine
+- Added Rename, Reload, and Destroy methods to VIManagedEntity
 
 New in 0.1.7
 
@@ -36,3 +15,27 @@ New in 0.1.7
 - Added optional host parameter to VIVirtualMachine.clone method
 - Added relocate() method to VIVirtualMachine (by Chris Dituri)
 - Several fixes
+
+New in 0.1.6
+
+- Added methods to VITask: get_result, get_progress, cancel
+- Added clone method to VIVirtualMachine
+- Added get_question method to VM (returns object with question info and answer method)
+- Fix bug in get_vm_by_path
+- Added method get_datastores in VIServer
+- Fixed issues 3, 4
+- Added method migrate in VIVirtualMachine
+- Added VIMor class
+- Multithread support
+
+New in 0.1.5:
+
+- suppor vSphere 5.0
+- added suspend method to VM
+- added quick vm properties for disks and files info
+- implemented VIProperty to access vm objects properties as defined in vSphere API reference
+- Fixed error in get registered vms triggered on empty hosts or with faulty vms
+- Fixed '..' in import statements for compatibility with python 2.4
+- Added VM guest operations: create/delete/rename files and directories, upload/download files, start/stop/list processes
+- FIxed bugs in performance manager
+- FIxes issue in ZSI triggered when parsing dates prior to year 1970
