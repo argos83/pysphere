@@ -27,6 +27,8 @@
 #
 #--
 
+from pysphere.resources.VimService_services_types import ns0
+
 class VIMor(str):
     """str subclass representing a Managed Object Reference"""
     
@@ -35,6 +37,7 @@ class VIMor(str):
     
     def __init__(self, value, mor_type):
         self._mor_type = mor_type
+        self.typecode = ns0.ManagedObjectReference_Def(value)
         
     def get_attribute_type(self):
         return self._mor_type
