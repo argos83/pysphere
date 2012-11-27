@@ -421,6 +421,27 @@ class VIServer:
         except (VI.ZSI.FaultException), e:
             raise VIApiException(e)
 
+    def acquire_clone_ticket(self):
+        """Acquire a session-specific ticket string which can be used to clone 
+        the current session. The caller of this operation can pass the ticket 
+        value to another entity on the client. The recipient can then call 
+        CloneSession with the ticket string on an unauthenticated session and 
+        avoid having to re-enter credentials.
+        The ticket may only be used once and becomes invalid after use. 
+        The ticket is also invalidated when the corresponding session is closed
+        or expires. The ticket is only valid on the server which issued it."""
+        if not self.__logged:
+            raise VIException("Must call 'connect' before invoking this method",
+                              FaultTypes.NOT_CONNECTED)
+        try:
+            request = VI.AcquireCloneTicketRequestMsg()
+            _this = request.new__this(self._do_service_content.SessionManager)
+            _this.set_attribute_type(MORTypes.SessionManager)
+            request.set_element__this(_this)
+            return self._proxy.AcquireCloneTicket(request)._returnval
+        except (VI.ZSI.FaultException), e:
+            raise VIApiException(e)
+
     def _get_object_properties(self, mor, property_names=[], get_all=False):
         """Returns the properties defined in property_names (or all if get_all
         is set to True) of the managed object reference given in @mor.
@@ -646,6 +667,16 @@ class VIServer:
             spec_array_host_vm[0].set_element_name('visitFolders')
             h_to_vm.set_element_selectSet(spec_array_host_vm)
 
+            #Recurse through all datastores
+            ds_to_vm = VI.ns0.TraversalSpec_Def('dsToVm').pyclass()
+            ds_to_vm.set_element_name('dsToVm')
+            ds_to_vm.set_element_type(MORTypes.Datastore)
+            ds_to_vm.set_element_path('vm')
+            ds_to_vm.set_element_skip(False)
+            spec_array_datastore_vm = [do_ObjectSpec_objSet.new_selectSet()]
+            spec_array_datastore_vm[0].set_element_name('visitFolders')
+            ds_to_vm.set_element_selectSet(spec_array_datastore_vm)
+
             #Recurse through the folders
             visit_folders = VI.ns0.TraversalSpec_Def('visitFolders').pyclass()
             visit_folders.set_element_name('visitFolders')
@@ -653,6 +684,7 @@ class VIServer:
             visit_folders.set_element_path('childEntity')
             visit_folders.set_element_skip(False)
             spec_array_visit_folders = [do_ObjectSpec_objSet.new_selectSet(),
+                                        do_ObjectSpec_objSet.new_selectSet(),
                                         do_ObjectSpec_objSet.new_selectSet(),
                                         do_ObjectSpec_objSet.new_selectSet(),
                                         do_ObjectSpec_objSet.new_selectSet(),
@@ -667,12 +699,13 @@ class VIServer:
             spec_array_visit_folders[4].set_element_name('crToRp')
             spec_array_visit_folders[5].set_element_name('dcToDs')
             spec_array_visit_folders[6].set_element_name('hToVm')
-            spec_array_visit_folders[7].set_element_name('rpToVm')
+            spec_array_visit_folders[7].set_element_name('dsToVm')
+            spec_array_visit_folders[8].set_element_name('rpToVm')
             visit_folders.set_element_selectSet(spec_array_visit_folders)
 
             #Add all of them here
             spec_array = [visit_folders, dc_to_vmf, dc_to_ds, dc_to_hf, cr_to_h,
-                          cr_to_rp, rp_to_rp, h_to_vm, rp_to_vm]
+                          cr_to_rp, rp_to_rp, h_to_vm, ds_to_vm, rp_to_vm]
 
             do_ObjectSpec_objSet.set_element_selectSet(spec_array)
             objects_set.append(do_ObjectSpec_objSet)
