@@ -1297,7 +1297,7 @@ if 1:
         if node.nodeType == xml.dom.minidom.Node.ELEMENT_NODE:
             clone = newOwnerDocument.createElementNS(node.namespaceURI,
                                                      node.nodeName)
-            for attr in node.attributes.itervalues():
+            for attr in node.attributes.values():
                 clone.setAttributeNS(attr.namespaceURI, attr.nodeName, attr.value)
 
                 prefix, tag = xml.dom.minidom._nssplit(attr.nodeName)
