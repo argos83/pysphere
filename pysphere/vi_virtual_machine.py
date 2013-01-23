@@ -617,7 +617,7 @@ class VIVirtualMachine(VIManagedEntity):
             raise VIApiException(e)
         
     def relocate(self, sync_run=True, priority='default', datastore=None, 
-                 resource_pool=None, host=None, transform=None):
+                 resource_pool=None, host=None, transform=None, disks=None):
         """
         Cold or Hot relocates this virtual machine's virtual disks to a new 
         datastore.
@@ -643,6 +643,8 @@ class VIVirtualMachine(VIManagedEntity):
         @transform: If specified, the virtual machine's virtual disks are  
           transformed to the datastore using the specificed method; must be 
           either 'flat' or 'sparse'.
+        @disks: Allows specifying the datastore location for each virtual disk.
+          A dictionary with the device id as key, and the datastore MOR as value 
         """
         try:
             if priority not in ['default', 'low', 'high']:
@@ -678,6 +680,18 @@ class VIVirtualMachine(VIManagedEntity):
                 spec.set_element_host(host)
             if transform:
                 spec.set_element_transform(transform)
+            if disks and isinstance(disks, dict):
+                disk_spec = []
+                for k, disk_ds in disks.iteritems():
+                    if not VIMor.is_mor(disk_ds):
+                        disk_ds = VIMor(disk_ds, MORTypes.Datastore)
+                    disk = spec.new_disk()
+                    disk.DiskId = k
+                    ds = disk.new_datastore(disk_ds)
+                    ds.set_attribute_type(disk_ds.get_attribute_type())
+                    disk.Datastore = ds
+                    disk_spec.append(disk)
+                spec.Disk = disk_spec              
             request.set_element_priority(priority + "Priority")
             request.set_element_spec(spec)
             task = self._server._proxy.RelocateVM_Task(request)._returnval

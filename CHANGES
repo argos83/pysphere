@@ -3,6 +3,7 @@ Roadmap for 0.1.8
 - Added Rename, Reload, and Destroy methods to VIManagedEntity
 - Fix #26: VIVirtualMachine.send_file() gratuitiosly overwrites urllib2's installed default opener
 - Recurse through datastores vm property in retrieve_properties_traversal
+- Additional 'disks' parameter in VIVirtualMachine.relocate() method.
 
 New in 0.1.7
 
