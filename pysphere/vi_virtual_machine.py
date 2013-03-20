@@ -713,6 +713,7 @@ class VIVirtualMachine(VIManagedEntity):
 
     def get_snapshots(self):
         """Returns a list of VISnapshot instances of this VM"""
+        self.refresh_snapshot_list()
         return self._snapshot_list[:]
 
     def get_current_snapshot_name(self):
@@ -950,7 +951,7 @@ class VIVirtualMachine(VIManagedEntity):
 
     def refresh_snapshot_list(self):
         """Refreshes the internal list of snapshots of this VM"""
-        self.__update_properties()    
+        self.__update_properties()
 
     #--------------------------#
     #-- VMWARE TOOLS METHODS --#
@@ -1698,7 +1699,6 @@ class VIVirtualMachine(VIManagedEntity):
                     raise VIException(vi_task.get_error_message(),
                                       FaultTypes.TASK_ERROR)
                 return
-
             return vi_task
 
         except (VI.ZSI.FaultException), e:
@@ -1757,6 +1757,7 @@ class VIVirtualMachine(VIManagedEntity):
                 self._devices[dev.key] = d
         
         def update_disks(disks):
+            new_disks = []
             for disk in disks:
                 files = []
                 committed = 0
@@ -1771,7 +1772,7 @@ class VIVirtualMachine(VIManagedEntity):
                             store = f['name']
                 dev = self._devices[disk.key]
                 
-                self._disks.append({
+                new_disks.append({
                                    'device': dev,
                                    'files': files,
                                    'capacity': dev['capacityInKB'],
@@ -1779,6 +1780,7 @@ class VIVirtualMachine(VIManagedEntity):
                                    'descriptor': store,
                                    'label': dev['label'],
                                    })
+            self._disks = new_disks
         
         def update_files(files):
             for file_info in files:
@@ -1848,17 +1850,19 @@ class VIVirtualMachine(VIManagedEntity):
         #----------------------#
         #-- UPDATE SNAPSHOTS --#
         
+        root_snapshots = []
         if hasattr(self.properties, "snapshot"):
             if hasattr(self.properties.snapshot, "currentSnapshot"):
                 self.__current_snapshot = \
                                    self.properties.snapshot.currentSnapshot._obj
             
-            self._root_snapshots = []
+            
             for root_snap in self.properties.snapshot.rootSnapshotList:
                 root = VISnapshot(root_snap)
-                self._root_snapshots.append(root)
-            self.__create_snapshot_list()
-
+                root_snapshots.append(root)
+        self._root_snapshots = root_snapshots
+        self.__create_snapshot_list()
+        
         #-----------------------#
         #-- SET RESOURCE POOL --#
         if hasattr(self.properties, "resourcePool"):
