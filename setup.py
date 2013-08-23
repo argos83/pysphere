@@ -7,7 +7,7 @@ except:
     from distutils.core import setup
 
 
-VERSION = (0, 1, 7)
+VERSION = (0, 1, 8)
 
 
 if __name__ == "__main__":
@@ -37,7 +37,7 @@ if __name__ == "__main__":
         author="Sebastian Tello",
         author_email="argos83@gmail.com",
         url="http://pysphere.googlecode.com",
-        download_url="http://pysphere.googlecode.com/files/pysphere-0.1.7.zip",
+        download_url="http://pysphere.googlecode.com/files/pysphere-0.1.8.zip",
         keywords = ["vSphere", "Virtual", "vmware", "ESX", "ESXi",
                     "VirtualCenter", "SDK", "API"],
         classifiers = [
