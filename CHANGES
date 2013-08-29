@@ -1,3 +1,6 @@
+Roadmap for 0.1.9
+- Add vms_from_folder method in VIServer
+
 New in for 0.1.8
 - Added VIManagedEntity class extended by VIVirtualMachine
 - Added Rename, Reload, and Destroy methods to VIManagedEntity

@@ -59,7 +59,7 @@ class VIServer:
         @password: password to authenticate the session
         @trace_file: (optional) a file path to log SOAP requests and responses
         @sock_timeout: (optional) only for python >= 2.6, sets the connection
-        timeout for sockets, in python 2.5 you'll  have to use 
+        timeout for sockets, in python 2.5 you'll  have to use
         socket.setdefaulttimeout(secs) to change the global setting.
         """
 
@@ -88,10 +88,10 @@ class VIServer:
                 args['transdict'] = {'timeout':sock_timeout}
 
             self._proxy = locator.getVimPortType(**args)
-            
+
             for header, value in self.__initial_headers.iteritems():
                 self._proxy.binding.AddHeader(header, value)
-                
+
             #get service content from service instance
             request = VI.RetrieveServiceContentRequestMsg()
             mor_service_instance = request.new__this('ServiceInstance')
@@ -155,7 +155,7 @@ class VIServer:
         """Returns a Performance Manager entity"""
         return PerformanceManager(self, self._do_service_content.PerfManager)
 
-    def get_task_history_collector(self, entity=None, recursion=None, 
+    def get_task_history_collector(self, entity=None, recursion=None,
                                    states=None):
         """Creates a Task History Collector that gathers Task info objects.
         based on the provides filters.
@@ -163,9 +163,9 @@ class VIServer:
           * recursion: If 'entity' is provided then recursion is mandatory.
           specification of related managed entities in the inventory hierarchy
           should be either: 'all', 'children', or 'self'
-          * states: if provided, limits the set of collected tasks by their 
+          * states: if provided, limits the set of collected tasks by their
           states. Should be a list or one of 'queued', 'running', 'error', or
-          'success'  
+          'success'
         """
         return VITaskHistoryCollector(self, entity, recursion, states)
 
@@ -173,26 +173,26 @@ class VIServer:
         """
         Returns a dictionary of the existing hosts keys are their names
         and values their ManagedObjectReference object.
-        @from_mor: if given, retrieves the hosts contained within the specified 
+        @from_mor: if given, retrieves the hosts contained within the specified
             managed entity.
         """
         return self._get_managed_objects(MORTypes.HostSystem, from_mor)
-    
+
 
     def get_datastores(self, from_mor=None):
         """
         Returns a dictionary of the existing datastores. Keys are
         ManagedObjectReference and values datastore names.
-        @from_mor: if given, retrieves the datastores contained within the 
+        @from_mor: if given, retrieves the datastores contained within the
             specified managed entity.
         """
         return self._get_managed_objects(MORTypes.Datastore, from_mor)
-        
+
     def get_clusters(self, from_mor=None):
         """
-        Returns a dictionary of the existing clusters. Keys are their 
+        Returns a dictionary of the existing clusters. Keys are their
         ManagedObjectReference objects and values their names.
-        @from_mor: if given, retrieves the clusters contained within the 
+        @from_mor: if given, retrieves the clusters contained within the
             specified managed entity.
         """
         return self._get_managed_objects(MORTypes.ClusterComputeResource,
@@ -202,10 +202,10 @@ class VIServer:
         """
         Returns a dictionary of the existing datacenters. keys are their
         ManagedObjectReference objects and values their names.
-        @from_mor: if given, retrieves the datacenters contained within the 
+        @from_mor: if given, retrieves the datacenters contained within the
             specified managed entity.
         """
-        return self._get_managed_objects(MORTypes.Datacenter, from_mor)           
+        return self._get_managed_objects(MORTypes.Datacenter, from_mor)
 
     def get_resource_pools(self, from_mor=None):
         """
@@ -245,8 +245,8 @@ class VIServer:
                 rps[child]["parent"] = _id
         ret = {}
         for rp in rps.itervalues():
-            ret[rp["mor"]] = get_path(rps, rp) 
-        
+            ret[rp["mor"]] = get_path(rps, rp)
+
         return ret
 
     def get_vm_by_path(self, path, datacenter=None):
@@ -287,13 +287,13 @@ class VIServer:
         except (VI.ZSI.FaultException), e:
             raise VIApiException(e)
 
-        raise VIException("Could not find a VM with path '%s'" % path, 
+        raise VIException("Could not find a VM with path '%s'" % path,
                           FaultTypes.OBJECT_NOT_FOUND)
 
     def get_vm_by_name(self, name, datacenter=None):
         """
         Returns an instance of VIVirtualMachine. Where its name matches @name.
-        The VM is searched throughout all the datacenters, unless the name or 
+        The VM is searched throughout all the datacenters, unless the name or
         MOR of the datacenter the VM belongs to is provided. The first instance
         matching @name is returned.
         NOTE: As names might be duplicated is recommended to use get_vm_by_path
@@ -309,7 +309,7 @@ class VIServer:
             elif datacenter:
                 dc = self.get_datacenters()
                 nodes = [k for k,v in dc.iteritems() if v==datacenter]
-                
+
             for node in nodes:
                 vms = self._get_managed_objects(MORTypes.VirtualMachine,
                                                       from_mor=node)
@@ -319,7 +319,7 @@ class VIServer:
         except (VI.ZSI.FaultException), e:
             raise VIApiException(e)
 
-        raise VIException("Could not find a VM named '%s'" % name, 
+        raise VIException("Could not find a VM named '%s'" % name,
                           FaultTypes.OBJECT_NOT_FOUND)
 
     def get_server_type(self):
@@ -338,7 +338,7 @@ class VIServer:
         """
         return self.__api_type
 
-    def get_registered_vms(self, datacenter=None, cluster=None, 
+    def get_registered_vms(self, datacenter=None, cluster=None,
                            resource_pool=None, status=None,
                            advanced_filters=None):
         """Returns a list of VM Paths.
@@ -356,18 +356,18 @@ class VIServer:
             raise VIException("Must call 'connect' before invoking this method",
                               FaultTypes.NOT_CONNECTED)
         try:
-            
+
             if not advanced_filters or not isinstance(advanced_filters, dict):
                 advanced_filters={}
-                
+
             if status:
                 advanced_filters['runtime.powerState'] = [status]
-        
+
             property_filter = list(advanced_filters.iterkeys())
-            
+
             if not 'config.files.vmPathName' in property_filter:
                 property_filter.insert(0, 'config.files.vmPathName')
-            
+
             #Root MOR filters
             ret = []
             nodes = [None]
@@ -379,7 +379,7 @@ class VIServer:
             elif cluster and VIMor.is_mor(cluster):
                 nodes = [cluster]
             elif cluster:
-                nodes = [k for k,v in self.get_clusters().iteritems() 
+                nodes = [k for k,v in self.get_clusters().iteritems()
                         if v==cluster]
             elif datacenter and VIMor.is_mor(datacenter):
                 nodes = [datacenter]
@@ -399,11 +399,11 @@ class VIServer:
                         prop_set = obj.PropSet
                     except AttributeError:
                         continue
-                    
+
                     ppath = None
-                    filter_match = dict([(k, False) 
+                    filter_match = dict([(k, False)
                                          for k in advanced_filters.iterkeys()])
-                    
+
                     for item in prop_set:
                         if item.Name == 'config.files.vmPathName':
                             ppath = item.Val
@@ -413,7 +413,7 @@ class VIServer:
                                 expected = [expected]
                             if item.Val in expected:
                                 filter_match[item.Name] = True
-        
+
                     if all(filter_match.values()):
                         ret.append(ppath)
             return ret
@@ -421,13 +421,41 @@ class VIServer:
         except (VI.ZSI.FaultException), e:
             raise VIApiException(e)
 
+    def vms_from_folder(self, folder_name, status="poweredOn"):
+        """Returns a list of VM Paths in a root folder.
+        @folder_name: name to filter VMs registered in that folder
+        @status: status to filter VMs, default poweredOn, pass None
+            for not status filter
+        """
+
+        folders = self._get_managed_objects(MORTypes.Folder)
+        try:
+            folder_mor = [mor for mor, name in folders.iteritems()
+                          if name == folder_name][0]
+        except IndexError:
+            raise VIException("Root folder not found: %s" % folder_name)
+
+        properties = ['config.files.vmPathName', 'runtime.powerState']
+        vms = self._retrieve_properties_traversal(
+                                    property_names=properties,
+                                    obj_type=MORTypes.VirtualMachine,
+                                    from_node=folder_mor)
+
+        if status:
+            status_filter = lambda vmstatus: vmstatus == status
+        else:
+            status_filter = lambda vmstatus: True
+
+        return [vm.PropSet[0].Val for vm in vms
+                if status_filter(vm.PropSet[1].Val)]
+
     def acquire_clone_ticket(self):
-        """Acquire a session-specific ticket string which can be used to clone 
-        the current session. The caller of this operation can pass the ticket 
-        value to another entity on the client. The recipient can then call 
-        CloneSession with the ticket string on an unauthenticated session and 
+        """Acquire a session-specific ticket string which can be used to clone
+        the current session. The caller of this operation can pass the ticket
+        value to another entity on the client. The recipient can then call
+        CloneSession with the ticket string on an unauthenticated session and
         avoid having to re-enter credentials.
-        The ticket may only be used once and becomes invalid after use. 
+        The ticket may only be used once and becomes invalid after use.
         The ticket is also invalidated when the corresponding session is closed
         or expires. The ticket is only valid on the server which issued it."""
         if not self.__logged:
@@ -545,7 +573,7 @@ class VIServer:
             return request_call(request)
 
         except (VI.ZSI.FaultException), e:
-            raise VIApiException(e)                 
+            raise VIApiException(e)
 
 
     def _retrieve_properties_traversal(self, property_names=[],
@@ -558,14 +586,14 @@ class VIServer:
         try:
             if not from_node:
                 from_node = self._do_service_content.RootFolder
-            
+
             elif isinstance(from_node, tuple) and len(from_node) == 2:
                 from_node = VIMor(from_node[0], from_node[1])
             elif not VIMor.is_mor(from_node):
                 raise VIException("from_node must be a MOR object or a "
                                   "(<str> mor_id, <str> mor_type) tuple",
                                   FaultTypes.PARAMETER_ERROR)
-            
+
             request, request_call = self._retrieve_property_request()
 
 
@@ -746,7 +774,7 @@ class VIServer:
                 retval = self._proxy.ContinueRetrievePropertiesEx(
                                                   request)._returnval
                 ret.extend(retval.Objects)
-            return ret            
+            return ret
 
         if self.__api_version >= "4.1":
             #RetrieveProperties is deprecated (but supported) in sdk 4.1.
@@ -770,12 +798,12 @@ class VIServer:
         Both name and value should be strings."""
         if not (isinstance(name, basestring) and isinstance(value, basestring)):
             return
-        
+
         if not self.__logged:
             self.__initial_headers[name] = value
         else:
             self._proxy.binding.AddHeader(name, value)
-        
+
     def _reset_headers(self):
         """Resets the additional HTTP headers configured to be sent along with
         the SOAP requests."""
@@ -783,10 +811,10 @@ class VIServer:
             self.__initial_headers = {}
         else:
             self._proxy.binding.ResetHeaders()
-            
+
     def _get_managed_objects(self, mo_type, from_mor=None):
         """Returns a dictionary of managed objects and their names"""
-        
+
         content = self._retrieve_properties_traversal(property_names=['name'],
                                                       from_node=from_mor,
                                                       obj_type=mo_type)
@@ -795,9 +823,9 @@ class VIServer:
             return dict([(o.Obj, o.PropSet[0].Val) for o in content])
         except VI.ZSI.FaultException, e:
             raise VIApiException(e)
-    
-    #---- DEPRECATED METHODS ----#    
-            
+
+    #---- DEPRECATED METHODS ----#
+
     def _get_clusters(self, from_cache=True):
         """DEPRECATED: use get_clusters instead."""
         import warnings
@@ -805,10 +833,10 @@ class VIServer:
         warnings.warn("method '_get_clusters' is DEPRECATED use "\
                       "'get_clusters' instead",
                       DeprecationWarning)
-        
+
         ret = self.get_clusters()
         return dict([(v,k) for k,v in ret.iteritems()])
-    
+
     def _get_datacenters(self, from_cache=True):
         """DEPRECATED: use get_datacenters instead."""
         import warnings
@@ -819,7 +847,7 @@ class VIServer:
 
         ret = self.get_datacenters()
         return dict([(v,k) for k,v in ret.iteritems()])
-    
+
     def _get_resource_pools(self, from_cache=True):
         """DEPRECATED: use get_resource_pools instead."""
         import warnings
@@ -829,4 +857,4 @@ class VIServer:
                       DeprecationWarning)
 
         ret = self.get_resource_pools()
-        return dict([(v,k) for k,v in ret.iteritems()])     
+        return dict([(v,k) for k,v in ret.iteritems()])
