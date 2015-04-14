@@ -1,0 +1,28 @@
+### **Table Of Contents** ###
+
+  * [Installation](GettingStarted#Installation.md)
+  * [Connecting to a server](GettingStarted#Connecting_to_a_server.md)
+  * [Server properties and methods](GettingStarted#Server_properties_and_methods.md)
+    * [Getting the server type and vSphere API version](GettingStarted#Getting_the_server_type_and_vSphere_API_version.md)
+    * [Getting the server's registered VMs](GettingStarted#Getting_the_server's_registered_VMs.md)
+    * [Disconnecting from the server](GettingStarted#Disconnecting_from_the_server.md)
+  * [Working with virtual machines](GettingStarted#Working_with_virtual_machines.md)
+    * [Getting VM properties](GettingStarted#Getting_VM_properties.md)
+      * [Virtual Machine Status](GettingStarted#Virtual_Machine_Status:.md)
+      * [Getting basic properties](GettingStarted#Getting_basic_properties:.md)
+      * [Getting the resource pool name](GettingStarted#Getting_the_resource_pool_name:.md)
+    * [Power ON/OFF, Suspend, Reset](GettingStarted#Power_ON/OFF,_Suspend,_Reset.md)
+    * [Snapshots](GettingStarted#Snapshots:_Revert_to,_Create,_and_Delete.md)
+      * [Revert to snapshot](GettingStarted#Revert_to_snapshot.md)
+      * [Delete snapshots](GettingStarted#Delete_snapshots.md)
+      * [Create snapshot](GettingStarted#Create_snapshot.md)
+      * [List snapshots](GettingStarted#List_snapshots.md)
+    * [Stand\_By Guest power operations: Shutdown, Reboot, and Stand By](GettingStarted#Guest_power_operations:_Shutdown,_Reboot,_and.md)
+    * [Other guest operations: Files and processes](GettingStarted#Other_guest_operations:_Files_and_processes.md)
+      * [Files and Directories](GettingStarted#Files_and_Directories.md)
+      * [Processes and environment variables](GettingStarted#Processes_and_environment_variables.md)
+    * [Cloning a Virtual Machine](GettingStarted#Cloning_a_Virtual_Machine.md)
+    * [Migrating a Virtual Machine](GettingStarted#Migrating_a_Virtual_Machine.md)
+    * [Running Tasks Asynchronously](GettingStarted#Running_Tasks_Asynchronously.md)
+
+
