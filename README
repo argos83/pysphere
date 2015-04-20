@@ -1,56 +1,69 @@
-# PySphere 
+========
+PySphere 
+========
+Python API for interacting with the vSphere Web Services SDK.
+-------------------------------------------------------------
 
-## IMPORTANT NOTICE
+Visit the project_ site for more information.
 
- * This project has been migrated from http://pysphere.googlecode.com
- 
- * Since 2013 I'm NOT LONGER MAINTAINING this project. I moved to a new country and started working with new technologies so I haven't been able to follow up. Since then a few forks from pysphere have been created and VMWare released its official [python bindings for vSphere](https://developercenter.vmware.com/-/vmware-vsphere-api-python-bindings) that you may want to check out.
+.. _project: http://pysphere.googlecode.com
 
+**Among other operations, PySphere provides easy interfaces to:**
 
-## Python API for interacting with the vSphere Web Services SDK.
-
-Visit the [project site](https://github.com/argos83/pysphere) for more information.
-
-**Among other operations, PySphere provides simple interfaces to:**
-
-  - Connect to VMWare's ESX, ESXi, Virtual Center, Virtual Server hosts 
-  - Query hosts, datacenters, resource pools, virtual machines
-  - VMs: Power on, power off, reset, revert to snapshot, get properties, update vmware tools, clone, migrate.
-  - vSphere 5.0 Guest Operations: 
-    - create/delete/move files and directories.
-    - upload/download files from the guest system.
-    - List/start/stop processes in the guest system.
-  - Create and delete snapshots
-  - Get hosts statistics and monitor performance
+- Connect to VMWare's ESX, ESXi, Virtual Center, Virtual Server hosts 
+- Query hosts, datacenters, resource pools, virtual machines
+- VMs: Power on, power off, reset, revert to snapshot, get properties, update 
+  vmware tools, clone, migrate.
+- vSphere 5.0 Guest Operations: create/delete/move files and directories.
+  upload/download files from the guest system. List/start/stop processes in 
+  the guest system.
+- Create and delete snapshots
+- Get hosts statistics and monitor performance
 
 An of course, you can use it to access all the vSphere API through python.
 
-It's built upon a slightly modified version of [ZSI](http://pywebsvcs.sourceforge.net/zsi.html) (that comes bundled-in) which makes it really fast in contrast to other python SOAP libraries that don't provide code generation.
+It's built upon a slightly modified version of ZSI_ (that comes bundled-in) 
+which makes it really fast in contrast to other python SOAP libraries that don't
+provide code generation.
 
-### Installation
+.. _ZSI: http://pywebsvcs.sourceforge.net/zsi.html
 
-The simplest way is using [setuptools](http://pypi.python.org/pypi/setuptools)' easy_install:
+Installation
+------------
 
-```
-easy_install -U pysphere
-```
+The simplest way is using setuptools_' easy_install:
 
-Or using (pip)[http://pypi.python.org/pypi/pip]:
+.. _setuptools: http://pypi.python.org/pypi/setuptools
 
-```
-pip install -U pysphere
-```
+::
 
-You can aslo find the source package and windows installer in the [downloads](http://code.google.com/p/pysphere/downloads/list) section. To install it from the source package:
+  easy_install -U pysphere
+
+Or using the pip_:
+
+.. _pip: http://pypi.python.org/pypi/pip
+
+::
+
+  pip install -U pysphere
+
+You can aslo find the source package and windows installer in the downloads_ 
+section. To install it from the source package:
+
+.. _downloads: http://code.google.com/p/pysphere/downloads/list
 
 1. Unzip the package
-2. run: `python setup.py install`
+2. run: ``python setup.py install``
 
-### Quick Example
+Quick Example
+-------------
 
-Here's how you power on a virtual machine. See also the [getting started guide](http://code.google.com/p/pysphere/wiki/GettingStarted) and the project's [wiki](http://code.google.com/p/pysphere/w/list) with the full documentation.
+Here's how you power on a virtual machine. See also the `getting started`_ guide
+and the project's wiki_ with the full documentation.
 
-```
+.. _getting started: http://code.google.com/p/pysphere/wiki/GettingStarted
+.. _wiki: http://code.google.com/p/pysphere/w/list
+
 >>> from pysphere import VIServer
 >>> server = VIServer()
 >>> server.connect("my.esx.host.com", "myusername", "secret")
@@ -58,15 +71,17 @@ Here's how you power on a virtual machine. See also the [getting started guide](
 >>> vm.power_on()
 >>> print vm.get_status()
 POWERED ON
-```
 
-### Discussion Group
+Discussion Group
+----------------
 
-You can find a lot more examples and use cases in the [discussion group](http://groups.google.com/group/pysphere).
+You can find a lot more examples and use cases in the `discussion group`_
 
-### License
+.. _discussion group: http://groups.google.com/group/pysphere
 
-```
+License
+-------
+
 Copyright (c) 2012, Sebastian Tello
 All rights reserved.
 
@@ -92,12 +107,12 @@ SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
 CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-```
 
 
-### ZSI License
 
-```
+ZSI License
+-----------
+
 Copyright (c) 2003, The Regents of the University of California,
 through Lawrence Berkeley National Laboratory (subject to receipt of
 any required approvals from the U.S. Dept. of Energy). All rights
@@ -137,4 +152,3 @@ the following license: a non-exclusive, royalty-free perpetual license
 to install, use, modify, prepare derivative works, incorporate into
 other computer software, distribute, and sublicense such Enhancements
 or derivative works thereof, in binary and source code form.
-```

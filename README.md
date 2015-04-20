@@ -3,7 +3,7 @@
 ## IMPORTANT NOTICE
 
  * This project has been migrated from http://pysphere.googlecode.com
- 
+
  * Since 2013 I'm NOT LONGER MAINTAINING this project. I moved to a new country and started working with new technologies so I haven't been able to follow up. Since then a few forks from pysphere have been created and VMWare released its official [python bindings for vSphere](https://developercenter.vmware.com/-/vmware-vsphere-api-python-bindings) that you may want to check out.
 
 
@@ -35,7 +35,7 @@ The simplest way is using [setuptools](http://pypi.python.org/pypi/setuptools)' 
 easy_install -U pysphere
 ```
 
-Or using (pip)[http://pypi.python.org/pypi/pip]:
+Or using [pip](http://pypi.python.org/pypi/pip):
 
 ```
 pip install -U pysphere
