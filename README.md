@@ -41,14 +41,14 @@ Or using [pip](http://pypi.python.org/pypi/pip):
 pip install -U pysphere
 ```
 
-You can aslo find the source package and windows installer in the [downloads](http://code.google.com/p/pysphere/downloads/list) section. To install it from the source package:
+To install it from the source package:
 
 1. Unzip the package
 2. run: `python setup.py install`
 
 ### Quick Example
 
-Here's how you power on a virtual machine. See also the [getting started guide](http://code.google.com/p/pysphere/wiki/GettingStarted) and the project's [wiki](http://code.google.com/p/pysphere/w/list) with the full documentation.
+Here's how you power on a virtual machine. See also the [getting started guide](https://github.com/argos83/pysphere/blob/wiki/GettingStarted.md) and the project's [wiki](https://github.com/argos83/pysphere/tree/wiki) with the full documentation.
 
 ```
 >>> from pysphere import VIServer
