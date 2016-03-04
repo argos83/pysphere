@@ -35,7 +35,7 @@ from pysphere.resources import VimService_services as VI
 from pysphere import VIProperty, VIMor, MORTypes
 from pysphere.vi_task import VITask
 from pysphere.resources.vi_exception import VIException, VIApiException, \
-                                            FaultTypes
+                                            VITaskException, FaultTypes
 from pysphere.vi_snapshot import VISnapshot
 from pysphere.vi_managed_entity import VIManagedEntity
 
@@ -76,7 +76,7 @@ class VIVirtualMachine(VIManagedEntity):
         except AttributeError:
             #guest operations not supported (since API 5.0)
             pass
-        
+
     #-------------------#
     #-- POWER METHODS --#
     #-------------------#
@@ -102,8 +102,7 @@ class VIVirtualMachine(VIManagedEntity):
                 status = vi_task.wait_for_state([vi_task.STATE_SUCCESS,
                                                  vi_task.STATE_ERROR])
                 if status == vi_task.STATE_ERROR:
-                    raise VIException(vi_task.get_error_message(),
-                                      FaultTypes.TASK_ERROR)
+                    raise VITaskException(vi_task.info.error)
                 return
 
             return vi_task
@@ -128,8 +127,7 @@ class VIVirtualMachine(VIManagedEntity):
                 status = vi_task.wait_for_state([vi_task.STATE_SUCCESS,
                                                  vi_task.STATE_ERROR])
                 if status == vi_task.STATE_ERROR:
-                    raise VIException(vi_task.get_error_message(),
-                                      FaultTypes.TASK_ERROR)
+                    raise VITaskException(vi_task.info.error)
                 return
 
             return vi_task
@@ -154,8 +152,7 @@ class VIVirtualMachine(VIManagedEntity):
                 status = vi_task.wait_for_state([vi_task.STATE_SUCCESS,
                                                  vi_task.STATE_ERROR])
                 if status == vi_task.STATE_ERROR:
-                    raise VIException(vi_task.get_error_message(),
-                                      FaultTypes.TASK_ERROR)
+                    raise VITaskException(vi_task.info.error)
                 return
 
             return vi_task
@@ -177,8 +174,7 @@ class VIVirtualMachine(VIManagedEntity):
                 status = vi_task.wait_for_state([vi_task.STATE_SUCCESS,
                                                  vi_task.STATE_ERROR])
                 if status == vi_task.STATE_ERROR:
-                    raise VIException(vi_task.get_error_message(),
-                                      FaultTypes.TASK_ERROR)
+                    raise VITaskException(vi_task.info.error)
                 return
 
             return vi_task
@@ -191,7 +187,7 @@ class VIVirtualMachine(VIManagedEntity):
         basic statuses:
             'POWERED ON', 'POWERED OFF', 'SUSPENDED', 'BLOCKED ON MSG'
         extended_statuses (only available for vCenter):
-            'POWERING ON', 'POWERING OFF', 'SUSPENDING', 'RESETTING', 
+            'POWERING ON', 'POWERING OFF', 'SUSPENDING', 'RESETTING',
             'REVERTING TO SNAPSHOT', 'UNKNOWN'
         if basic_status is False (defautl) and the server is a vCenter, then
         one of the extended statuses might be returned.
@@ -266,17 +262,17 @@ class VIVirtualMachine(VIManagedEntity):
         """Returns a VMQuestion object with information about a question in this
         vm pending to be answered. None if the vm has no pending questions.
         """
-    
+
         class VMQuestion(object):
             def __init__(self, vm, qprop):
                 self._answered = False
                 self._vm = vm
                 self._qid = qprop.id
                 self._text = qprop.text
-                self._choices = [(ci.key, ci.label) 
+                self._choices = [(ci.key, ci.label)
                                  for ci in qprop.choice.choiceInfo]
                 self._default = getattr(qprop.choice, 'defaultIndex', None)
-                
+
             def text(self):
                 return self._text
             def choices(self):
@@ -285,12 +281,12 @@ class VIVirtualMachine(VIManagedEntity):
                 return self._choices[self._default]
             def answer(self, choice=None):
                 if self._answered:
-                    raise VIException("Question already answered", 
+                    raise VIException("Question already answered",
                                       FaultTypes.INVALID_OPERATION)
                 if choice is None and self._default is None:
                     raise VIException("No default choice available",
                                       FaultTypes.PARAMETER_ERROR)
-                elif choice is not None and choice not in [i[0] for i 
+                elif choice is not None and choice not in [i[0] for i
                                                               in self._choices]:
                     raise VIException("Invalid choice id",
                                       FaultTypes.PARAMETER_ERROR)
@@ -306,14 +302,14 @@ class VIVirtualMachine(VIManagedEntity):
                     self._vm._server._proxy.AnswerVM(request)
                     self._answered = True
                 except (VI.ZSI.FaultException), e:
-                    raise VIApiException(e)            
+                    raise VIApiException(e)
 
         self.__update_properties()
         if not hasattr(self.properties.runtime, "question"):
             return
         return VMQuestion(self, self.properties.runtime.question)
-     
-     
+
+
     def is_powering_off(self):
         """Returns True if the VM is being powered off"""
         return self.get_status() == VMPowerState.POWERING_OFF
@@ -353,7 +349,7 @@ class VIVirtualMachine(VIManagedEntity):
     #-------------------------#
     #-- GUEST POWER METHODS --#
     #-------------------------#
-    
+
     def reboot_guest(self):
         """Issues a command to the guest operating system asking it to perform
         a reboot. Returns immediately and does not wait for the guest operating
@@ -394,27 +390,27 @@ class VIVirtualMachine(VIManagedEntity):
             mor_vm = request.new__this(self._mor)
             mor_vm.set_attribute_type(self._mor.get_attribute_type())
             request.set_element__this(mor_vm)
-            
+
             self._server._proxy.StandbyGuest(request)
-            
+
         except (VI.ZSI.FaultException), e:
             raise VIApiException(e)
 
     #--------------#
     #-- CLONE VM --#
     #--------------#
-    def clone(self, name, sync_run=True, folder=None, resourcepool=None, 
-              datastore=None, host=None, power_on=True, template=False, 
+    def clone(self, name, sync_run=True, folder=None, resourcepool=None,
+              datastore=None, host=None, power_on=True, template=False,
               snapshot=None, linked=False):
         """Clones this Virtual Machine
         @name: name of the new virtual machine
         @sync_run: if True (default) waits for the task to finish, and returns
-            a VIVirtualMachine instance with the new VM (raises an exception if 
-        the task didn't succeed). If sync_run is set to False the task is 
+            a VIVirtualMachine instance with the new VM (raises an exception if
+        the task didn't succeed). If sync_run is set to False the task is
         started and a VITask instance is returned
         @folder: name of the folder that will contain the new VM, if not set
             the vm will be added to the folder the original VM belongs to
-        @resourcepool: MOR of the resourcepool to be used for the new vm. 
+        @resourcepool: MOR of the resourcepool to be used for the new vm.
             If not set, it uses the same resourcepool than the original vm.
         @datastore: MOR of the datastore where the virtual machine
             should be located. If not specified, the current datastore is used.
@@ -425,28 +421,28 @@ class VIVirtualMachine(VIManagedEntity):
                 stand-alone host, the host is used.
               * if resourcepool is specified, and the target pool represents a
                 DRS-enabled cluster, a host selected by DRS is used.
-              * if resource pool is specified and the target pool represents a 
+              * if resource pool is specified and the target pool represents a
                 cluster without DRS enabled, an InvalidArgument exception be
                 thrown.
         @power_on: If the new VM will be powered on after being created. If
             template is set to True, this parameter is ignored.
-        @template: Specifies whether or not the new virtual machine should be 
-            marked as a template.         
+        @template: Specifies whether or not the new virtual machine should be
+            marked as a template.
         @snapshot: Snaphot MOR, or VISnaphost object, or snapshot name (if a
-            name is given, then the first matching occurrence will be used). 
-            Is the snapshot reference from which to base the clone. If this 
-            parameter is set, the clone is based off of the snapshot point. This 
-            means that the newly created virtual machine will have the same 
-            configuration as the virtual machine at the time the snapshot was 
-            taken. If this parameter is not set then the clone is based off of 
+            name is given, then the first matching occurrence will be used).
+            Is the snapshot reference from which to base the clone. If this
+            parameter is set, the clone is based off of the snapshot point. This
+            means that the newly created virtual machine will have the same
+            configuration as the virtual machine at the time the snapshot was
+            taken. If this parameter is not set then the clone is based off of
             the virtual machine's current configuration.
         @linked: If True (requires @snapshot to be set) creates a new child disk
-            backing on the destination datastore. None of the virtual disk's 
+            backing on the destination datastore. None of the virtual disk's
             existing files should be moved from their current locations.
-            Note that in the case of a clone operation, this means that the 
+            Note that in the case of a clone operation, this means that the
             original virtual machine's disks are now all being shared. This is
-            only safe if the clone was taken from a snapshot point, because 
-            snapshot points are always read-only. Thus for a clone this option 
+            only safe if the clone was taken from a snapshot point, because
+            snapshot points are always read-only. Thus for a clone this option
             is only valid when cloning from a snapshot
         """
         try:
@@ -472,7 +468,7 @@ class VIVirtualMachine(VIManagedEntity):
             elif not folder_mor:
                 raise VIException("Error locating current VM folder",
                                   FaultTypes.OBJECT_NOT_FOUND)
-    
+
             request = VI.CloneVM_TaskRequestMsg()
             _this = request.new__this(self._mor)
             _this.set_attribute_type(self._mor.get_attribute_type())
@@ -516,15 +512,15 @@ class VIVirtualMachine(VIManagedEntity):
                             break
                 if not sn_mor:
                     raise VIException("Could not find snapshot '%s'" % snapshot,
-                                      FaultTypes.OBJECT_NOT_FOUND) 
+                                      FaultTypes.OBJECT_NOT_FOUND)
                 snapshot = spec.new_snapshot(sn_mor)
                 snapshot.set_attribute_type(sn_mor.get_attribute_type())
                 spec.set_element_snapshot(snapshot)
-            
+
             if linked and snapshot:
                 location.set_element_diskMoveType("createNewChildDiskBacking")
-                
-            spec.set_element_location(location)    
+
+            spec.set_element_location(location)
             spec.set_element_template(template)
             request.set_element_spec(spec)
             task = self._server._proxy.CloneVM_Task(request)._returnval
@@ -533,10 +529,9 @@ class VIVirtualMachine(VIManagedEntity):
                 status = vi_task.wait_for_state([vi_task.STATE_SUCCESS,
                                                  vi_task.STATE_ERROR])
                 if status == vi_task.STATE_ERROR:
-                    raise VIException(vi_task.get_error_message(),
-                                      FaultTypes.TASK_ERROR)
-                return VIVirtualMachine(self._server, vi_task.get_result()._obj) 
-                
+                    raise VITaskException(vi_task.info.error)
+                return VIVirtualMachine(self._server, vi_task.get_result()._obj)
+
             return vi_task
 
         except (VI.ZSI.FaultException), e:
@@ -549,23 +544,23 @@ class VIVirtualMachine(VIManagedEntity):
                 host=None, state=None):
         """
         Cold or Hot migrates this VM to a new host or resource pool.
-        @sync_run: If True (default) waits for the task to finish, and returns 
+        @sync_run: If True (default) waits for the task to finish, and returns
             (raises an exception if the task didn't succeed). If False the task
             is started an a VITask instance is returned.
         @priority: either 'default', 'high', or 'low': priority of the task that
-            moves the vm. Note this priority can affect both the source and 
+            moves the vm. Note this priority can affect both the source and
             target hosts.
         @resource_pool: The target resource pool for the virtual machine. If the
             pool parameter is left unset, the virtual machine's current pool is
             used as the target pool.
-        @host: The target host to which the virtual machine is intended to 
-            migrate. The host parameter may be left unset if the compute 
+        @host: The target host to which the virtual machine is intended to
+            migrate. The host parameter may be left unset if the compute
             resource associated with the target pool represents a stand-alone
             host or a DRS-enabled cluster. In the former case the stand-alone
             host is used as the target host. In the latter case, the DRS system
             selects an appropriate target host from the cluster.
         @state: If specified, the virtual machine migrates only if its state
-            matches the specified state. 
+            matches the specified state.
         """
         try:
             if priority not in ['default', 'low', 'high']:
@@ -578,7 +573,7 @@ class VIVirtualMachine(VIManagedEntity):
                                                 VMPowerState.POWERED_OFF,
                                                 VMPowerState.SUSPENDED),
                                    FaultTypes.PARAMETER_ERROR)
-                
+
             request = VI.MigrateVM_TaskRequestMsg()
             _this = request.new__this(self._mor)
             _this.set_attribute_type(self._mor.get_attribute_type())
@@ -601,27 +596,26 @@ class VIVirtualMachine(VIManagedEntity):
                           VMPowerState.POWERED_OFF: 'poweredOff',
                           VMPowerState.SUSPENDED:   'suspended'}
                 request.set_element_state(states[state])
-            
+
             task = self._server._proxy.MigrateVM_Task(request)._returnval
             vi_task = VITask(task, self._server)
             if sync_run:
                 status = vi_task.wait_for_state([vi_task.STATE_SUCCESS,
                                                  vi_task.STATE_ERROR])
                 if status == vi_task.STATE_ERROR:
-                    raise VIException(vi_task.get_error_message(),
-                                      FaultTypes.TASK_ERROR)
+                    raise VITaskException(vi_task.info.error)
                 return
 
             return vi_task
         except (VI.ZSI.FaultException), e:
             raise VIApiException(e)
-        
-    def relocate(self, sync_run=True, priority='default', datastore=None, 
+
+    def relocate(self, sync_run=True, priority='default', datastore=None,
                  resource_pool=None, host=None, transform=None, disks=None):
         """
-        Cold or Hot relocates this virtual machine's virtual disks to a new 
+        Cold or Hot relocates this virtual machine's virtual disks to a new
         datastore.
-        @sync_run: If True (default) waits for the task to finish, and returns 
+        @sync_run: If True (default) waits for the task to finish, and returns
           (raises an exception if the task didn't succeed). If False the task is
           started an a VITask instance is returned.
         @priority: either 'default', 'high', or 'low': priority of the task that
@@ -629,22 +623,22 @@ class VIVirtualMachine(VIManagedEntity):
           hosts.
         @datastore: The target datastore to which the virtual machine's virtual
           disks are intended to migrate.
-        @resource_pool: The resource pool to which this virtual machine should 
-          be attached. If the argument is not supplied, the current resource 
+        @resource_pool: The resource pool to which this virtual machine should
+          be attached. If the argument is not supplied, the current resource
           pool of virtual machine is used.
         @host: The target host for the virtual machine. If not specified,
           * if resource pool is not specified, current host is used.
-          * if resource pool is specified, and the target pool represents a 
+          * if resource pool is specified, and the target pool represents a
             stand-alone host, the host is used.
           * if resource pool is specified, and the target pool represents a
             DRS-enabled cluster, a host selected by DRS is used.
-          * if resource pool is specified and the target pool represents a 
-            cluster without DRS enabled, an InvalidArgument exception be thrown.           
-        @transform: If specified, the virtual machine's virtual disks are  
-          transformed to the datastore using the specificed method; must be 
+          * if resource pool is specified and the target pool represents a
+            cluster without DRS enabled, an InvalidArgument exception be thrown.
+        @transform: If specified, the virtual machine's virtual disks are
+          transformed to the datastore using the specificed method; must be
           either 'flat' or 'sparse'.
         @disks: Allows specifying the datastore location for each virtual disk.
-          A dictionary with the device id as key, and the datastore MOR as value 
+          A dictionary with the device id as key, and the datastore MOR as value
         """
         try:
             if priority not in ['default', 'low', 'high']:
@@ -653,7 +647,7 @@ class VIVirtualMachine(VIManagedEntity):
                         FaultTypes.PARAMETER_ERROR)
             if transform and transform not in [None, 'flat', 'sparse']:
                 raise VIException(
-                        "transform, if set, must be either '%s' or '%s'." 
+                        "transform, if set, must be either '%s' or '%s'."
                         % ('flat', 'sparse'), FaultTypes.PARAMETER_ERROR)
             request = VI.RelocateVM_TaskRequestMsg()
             _this = request.new__this(self._mor)
@@ -691,7 +685,7 @@ class VIVirtualMachine(VIManagedEntity):
                     ds.set_attribute_type(disk_ds.get_attribute_type())
                     disk.Datastore = ds
                     disk_spec.append(disk)
-                spec.Disk = disk_spec              
+                spec.Disk = disk_spec
             request.set_element_priority(priority + "Priority")
             request.set_element_spec(spec)
             task = self._server._proxy.RelocateVM_Task(request)._returnval
@@ -700,8 +694,7 @@ class VIVirtualMachine(VIManagedEntity):
                 status = vi_task.wait_for_state([vi_task.STATE_SUCCESS,
                                                  vi_task.STATE_ERROR])
                 if status == vi_task.STATE_ERROR:
-                    raise VIException(vi_task.get_error_message(),
-                                      FaultTypes.TASK_ERROR)
+                    raise VITaskException(vi_task.info.error)
                 return
             return vi_task
         except (VI.ZSI.FaultException), e:
@@ -750,8 +743,7 @@ class VIVirtualMachine(VIManagedEntity):
                 status = vi_task.wait_for_state([vi_task.STATE_SUCCESS,
                                                  vi_task.STATE_ERROR])
                 if status == vi_task.STATE_ERROR:
-                    raise VIException(vi_task.get_error_message(),
-                                      FaultTypes.TASK_ERROR)
+                    raise VITaskException(vi_task.info.error)
                 return
 
             return vi_task
@@ -793,8 +785,7 @@ class VIVirtualMachine(VIManagedEntity):
                 status = vi_task.wait_for_state([vi_task.STATE_SUCCESS,
                                                  vi_task.STATE_ERROR])
                 if status == vi_task.STATE_ERROR:
-                    raise VIException(vi_task.get_error_message(),
-                                      FaultTypes.TASK_ERROR)
+                    raise VITaskException(vi_task.info.error)
                 return
 
             return vi_task
@@ -837,8 +828,7 @@ class VIVirtualMachine(VIManagedEntity):
                 status = vi_task.wait_for_state([vi_task.STATE_SUCCESS,
                                                  vi_task.STATE_ERROR])
                 if status == vi_task.STATE_ERROR:
-                    raise VIException(vi_task.get_error_message(),
-                                      FaultTypes.TASK_ERROR)
+                    raise VITaskException(vi_task.info.error)
                 return
 
             return vi_task
@@ -865,7 +855,7 @@ class VIVirtualMachine(VIManagedEntity):
             in the virtual machine. This assures that a disk snapshot represents
             a consistent state of the guest file systems. If the virtual machine
             is powered off or VMware Tools are not available, the quiesce flag
-            is ignored. 
+            is ignored.
         """
         try:
             request = VI.CreateSnapshot_TaskRequestMsg()
@@ -885,14 +875,63 @@ class VIVirtualMachine(VIManagedEntity):
                                                  vi_task.STATE_ERROR])
                 self.refresh_snapshot_list()
                 if status == vi_task.STATE_ERROR:
-                    raise VIException(vi_task.get_error_message(),
-                                      FaultTypes.TASK_ERROR)
+                    raise VITaskException(vi_task.info.error)
                 return
 
             return vi_task
 
         except (VI.ZSI.FaultException), e:
             raise VIApiException(e)
+
+    def rename_current_snapshot(self, new_name=None, new_description=None):
+        """Renames the current snapshot.
+        If @new_name is None, snapshot name remains unchanged.
+        If @new_description is None snapshot description remains unchanged."""
+        self.refresh_snapshot_list()
+        if not self.__current_snapshot:
+            raise VIException("There is no current snapshot",
+                              FaultTypes.OBJECT_NOT_FOUND)
+
+        target_snap = None
+        for snap in self._snapshot_list:
+            if snap._mor == self.__current_snapshot:
+                target_snap = snap
+                break
+
+        return self.__rename_snapshot(target_snap, new_name, new_description)
+
+    def rename_named_snapshot(self, name, new_name=None, new_description=None):
+        """Renames the first snapshot found in this VM named after @name.
+        If @new_name is None, snapshot name remains unchanged.
+        If @new_description is None snapshot description remains unchanged."""
+        self.refresh_snapshot_list()
+        target_snap = None
+        for snap in self._snapshot_list:
+            if snap._name == name:
+                target_snap = snap
+                break
+        if target_snap is None:
+            raise VIException("Could not find snapshot '%s'" % name,
+                              FaultTypes.OBJECT_NOT_FOUND)
+
+        return self.__rename_snapshot(target_snap, new_name, new_description)
+
+    def rename_snapshot_by_path(self, path, index=0, new_name=None, new_description=None):
+        """Renames the VM snapshot of the given path and index (to disambiguate
+        among snapshots with the same path, default 0).
+        If @new_name is None, snapshot name remains unchanged.
+        If @new_description is None snapshot description remains unchanged."""
+
+        target_snap = None
+        for snap in self._snapshot_list:
+            if snap.get_path() == path and snap._index == index:
+                target_snap = snap
+                break
+        if not target_snap:
+            raise VIException("Couldn't find snapshot with path '%s' (index %d)"
+                              % (path, index), FaultTypes.OBJECT_NOT_FOUND)
+
+        self.__rename_snapshot(target_snap, new_name, new_description)
 
     def delete_current_snapshot(self, remove_children=False, sync_run=True):
         """Removes the current snapshot. If @remove_children is True, removes
@@ -979,8 +1018,7 @@ class VIVirtualMachine(VIManagedEntity):
                 status = vi_task.wait_for_state([vi_task.STATE_SUCCESS,
                                                  vi_task.STATE_ERROR])
                 if status == vi_task.STATE_ERROR:
-                    raise VIException(vi_task.get_error_message(),
-                                      FaultTypes.TASK_ERROR)
+                    raise VITaskException(vi_task.info.error)
                 return
 
             return vi_task
@@ -1035,14 +1073,14 @@ class VIVirtualMachine(VIManagedEntity):
     #-- GUEST AUTHENTICATION --#
     #--------------------------#
     def login_in_guest(self, user, password):
-        """Authenticates in the guest with the acquired credentials for use in 
+        """Authenticates in the guest with the acquired credentials for use in
         subsequent guest operation calls."""
         auth = VI.ns0.NamePasswordAuthentication_Def("NameAndPwd").pyclass()
         auth.set_element_interactiveSession(False)
         auth.set_element_username(user)
         auth.set_element_password(password)
         self.__validate_authentication(auth)
-        self._auth_obj = auth           
+        self._auth_obj = auth
 
     #------------------------#
     #-- GUEST FILE METHODS --#
@@ -1052,8 +1090,8 @@ class VIVirtualMachine(VIManagedEntity):
         """
         Creates a directory in the guest OS
           * path [string]: The complete path to the directory to be created.
-          * create_parents [bool]: Whether any parent directories are to be 
-                                   created. Default: True 
+          * create_parents [bool]: Whether any parent directories are to be
+                                   created. Default: True
         """
         if not self._file_mgr:
             raise VIException("Files operations not supported on this server",
@@ -1072,18 +1110,18 @@ class VIVirtualMachine(VIManagedEntity):
             request.set_element_auth(self._auth_obj)
             request.set_element_directoryPath(path)
             request.set_element_createParentDirectories(create_parents)
-            
+
             self._server._proxy.MakeDirectoryInGuest(request)
         except (VI.ZSI.FaultException), e:
             raise VIApiException(e)
-    
+
     def move_directory(self, src_path, dst_path):
         """
         Moves or renames a directory in the guest.
           * src_path [string]: The complete path to the directory to be moved.
-          * dst_path [string]: The complete path to the where the directory is 
+          * dst_path [string]: The complete path to the where the directory is
                                moved or its new name. It cannot be a path to an
-                               existing directory or an existing file. 
+                               existing directory or an existing file.
         """
         if not self._file_mgr:
             raise VIException("Files operations not supported on this server",
@@ -1102,7 +1140,7 @@ class VIVirtualMachine(VIManagedEntity):
             request.set_element_auth(self._auth_obj)
             request.set_element_srcDirectoryPath(src_path)
             request.set_element_dstDirectoryPath(dst_path)
-            
+
             self._server._proxy.MoveDirectoryInGuest(request)
         except (VI.ZSI.FaultException), e:
             raise VIApiException(e)
@@ -1111,9 +1149,9 @@ class VIVirtualMachine(VIManagedEntity):
         """
         Deletes a directory in the guest OS.
           * path [string]: The complete path to the directory to be deleted.
-          * recursive [bool]: If true, all subdirectories are also deleted. 
+          * recursive [bool]: If true, all subdirectories are also deleted.
                               If false, the directory must be empty for the
-                              operation to succeed.  
+                              operation to succeed.
         """
         if not self._file_mgr:
             raise VIException("Files operations not supported on this server",
@@ -1132,24 +1170,24 @@ class VIVirtualMachine(VIManagedEntity):
             request.set_element_auth(self._auth_obj)
             request.set_element_directoryPath(path)
             request.set_element_recursive(recursive)
-            
+
             self._server._proxy.DeleteDirectoryInGuest(request)
         except (VI.ZSI.FaultException), e:
             raise VIApiException(e)
-        
+
     def list_files(self, path, match_pattern=None):
         """
         Returns information about files or directories in the guest.
           * path [string]: The complete path to the directory or file to query.
-          * match_pattern[string]: A filter for the return values. Match 
-          patterns are specified using perl-compatible regular expressions. 
-          If match_pattern isn't set, then the pattern '.*' is used. 
-          
+          * match_pattern[string]: A filter for the return values. Match
+          patterns are specified using perl-compatible regular expressions.
+          If match_pattern isn't set, then the pattern '.*' is used.
+
         Returns a list of dictionaries with these keys:
-          * path [string]: The complete path to the file 
-          * size [long]: The file size in bytes 
+          * path [string]: The complete path to the file
+          * size [long]: The file size in bytes
           * type [string]: 'directory', 'file', or 'symlink'
-          
+
         """
         if not self._file_mgr:
             raise VIException("Files operations not supported on this server",
@@ -1183,21 +1221,21 @@ class VIVirtualMachine(VIManagedEntity):
                 return ret, finfo.Remaining
             except (VI.ZSI.FaultException), e:
                 raise VIApiException(e)
-        
+
         file_set, remaining = ListFilesInGuest(path, match_pattern, None, None)
         if remaining:
-            file_set.extend(ListFilesInGuest(path, match_pattern, 
+            file_set.extend(ListFilesInGuest(path, match_pattern,
                                             len(file_set), remaining)[0])
-        
+
         return file_set
 
     def get_file(self, guest_path, local_path, overwrite=False):
         """
         Initiates an operation to transfer a file from the guest.
-          * guest_path [string]: The complete path to the file inside the guest 
-                                that has to be transferred to the client. It 
+          * guest_path [string]: The complete path to the file inside the guest
+                                that has to be transferred to the client. It
                                 cannot be a path to a directory or a sym link.
-          * local_path [string]: The path to the local file to be created 
+          * local_path [string]: The path to the local file to be created
         """
         if not self._file_mgr:
             raise VIException("Files operations not supported on this server",
@@ -1208,9 +1246,9 @@ class VIVirtualMachine(VIManagedEntity):
         if os.path.exists(local_path) and not overwrite:
             raise VIException("Local file already exists",
                               FaultTypes.PARAMETER_ERROR)
-        
+
         from urlparse import urlparse
-        
+
         try:
             request = VI.InitiateFileTransferFromGuestRequestMsg()
             _this = request.new__this(self._file_mgr)
@@ -1221,8 +1259,8 @@ class VIVirtualMachine(VIManagedEntity):
             request.set_element_vm(vm)
             request.set_element_auth(self._auth_obj)
             request.set_element_guestFilePath(guest_path)
-            
-            
+
+
             url = self._server._proxy.InitiateFileTransferFromGuest(request
                                                                 )._returnval.Url
             url = url.replace("*", urlparse(self._server._proxy.binding.url
@@ -1231,7 +1269,7 @@ class VIVirtualMachine(VIManagedEntity):
                 import urllib2
                 req = urllib2.Request(url)
                 r = urllib2.urlopen(req)
-                
+
                 CHUNK = 16 * 1024
                 fd = open(local_path, "wb")
                 while True:
@@ -1244,10 +1282,10 @@ class VIVirtualMachine(VIManagedEntity):
                 #I was getting a SSL Protocol error executing this on
                 #python 2.6, but not with 2.5
                 urllib.urlretrieve(url, local_path)
-            
+
         except (VI.ZSI.FaultException), e:
             raise VIApiException(e)
-    
+
     def send_file(self, local_path, guest_path, overwrite=False):
         """
         Initiates an operation to transfer a file to the guest.
@@ -1302,17 +1340,17 @@ class VIVirtualMachine(VIManagedEntity):
         if not resp.code == 200:
             raise VIException("File could not be send",
                               FaultTypes.TASK_ERROR)
-    
+
     def move_file(self, src_path, dst_path, overwrite=False):
         """
         Renames a file in the guest.
-          * src_path [string]: The complete path to the original file or 
+          * src_path [string]: The complete path to the original file or
                                symbolic link to be moved.
-          * dst_path [string]: The complete path to the where the file is 
-                               renamed. It cannot be a path to an existing 
+          * dst_path [string]: The complete path to the where the file is
+                               renamed. It cannot be a path to an existing
                                directory.
           * overwrite [bool]: Default False, if True the destination file is
-                              clobbered.  
+                              clobbered.
         """
         if not self._file_mgr:
             raise VIException("Files operations not supported on this server",
@@ -1335,7 +1373,7 @@ class VIVirtualMachine(VIManagedEntity):
             self._server._proxy.MoveFileInGuest(request)
         except (VI.ZSI.FaultException), e:
             raise VIApiException(e)
-    
+
     def delete_file(self, path):
         """
         Deletes a file in the guest OS
@@ -1365,12 +1403,12 @@ class VIVirtualMachine(VIManagedEntity):
     #-- GUEST PROCESS METHODS --#
     #---------------------------#
 
-    def list_processes(self):
+    def list_processes(self, pids=[]):
         """
         List the processes running in the guest operating system, plus those
-        started by start_process that have recently completed. 
+        started by start_process that have recently completed.
         The list contains dicctionary objects with these keys:
-            cmd_line [string]: The full command line 
+            cmd_line [string]: The full command line
             end_time [datetime]: If the process was started using start_process
                     then the process completion time will be available if
                     queried within 5 minutes after it completes. None otherwise
@@ -1378,9 +1416,11 @@ class VIVirtualMachine(VIManagedEntity):
                     the process exit code will be available if queried within 5
                     minutes after it completes. None otherwise
             name [string]: The process name
-            owner [string]: The process owner 
+            owner [string]: The process owner
             pid [long]: The process ID
-            start_time [datetime] The start time of the process 
+            start_time [datetime] The start time of the process
+          * pids [list of numbers]: Optional list of pids to show. If skipped or
+                                    empty, all processes will be shown.
         """
         if not self._proc_mgr:
             raise VIException("Process operations not supported on this server",
@@ -1397,6 +1437,7 @@ class VIVirtualMachine(VIManagedEntity):
             vm.set_attribute_type(self._mor.get_attribute_type())
             request.set_element_vm(vm)
             request.set_element_auth(self._auth_obj)
+            request.set_element_pids(pids)
             pinfo = self._server._proxy.ListProcessesInGuest(request)._returnval
             ret = []
             for proc in pinfo:
@@ -1417,7 +1458,7 @@ class VIVirtualMachine(VIManagedEntity):
         """
         Reads the environment variables from the guest OS (system user). Returns
         a dictionary where keys are the var names and the dict value is the var
-        value. 
+        value.
         """
         if not self._proc_mgr:
             raise VIException("Process operations not supported on this server",
@@ -1447,17 +1488,17 @@ class VIVirtualMachine(VIManagedEntity):
             args [list of strings]: The arguments to the program.
             env [dictionary]: environment variables to be set for the program
                               being run. Eg. {'foo':'bar', 'varB':'B Value'}
-            cwd [string]: The absolute path of the working directory for the 
-                          program to be run. VMware recommends explicitly 
-                          setting the working directory for the program to be 
-                          run. If this value is unset or is an empty string, 
-                          the behavior depends on the guest operating system. 
-                          For Linux guest operating systems, if this value is 
-                          unset or is an empty string, the working directory 
+            cwd [string]: The absolute path of the working directory for the
+                          program to be run. VMware recommends explicitly
+                          setting the working directory for the program to be
+                          run. If this value is unset or is an empty string,
+                          the behavior depends on the guest operating system.
+                          For Linux guest operating systems, if this value is
+                          unset or is an empty string, the working directory
                           will be the home directory of the user associated with
-                          the guest authentication. For other guest operating 
-                          systems, if this value is unset, the behavior is 
-                          unspecified. 
+                          the guest authentication. For other guest operating
+                          systems, if this value is unset, the behavior is
+                          unspecified.
         """
         if not self._proc_mgr:
             raise VIException("Process operations not supported on this server",
@@ -1476,16 +1517,16 @@ class VIVirtualMachine(VIManagedEntity):
             request.set_element_auth(self._auth_obj)
             spec = request.new_spec()
             spec.set_element_programPath(program_path)
-            if env: spec.set_element_envVariables(["%s=%s" % (k,v) 
+            if env: spec.set_element_envVariables(["%s=%s" % (k,v)
                                                   for k,v in env.iteritems()])
             if cwd: spec.set_element_workingDirectory(cwd)
             spec.set_element_arguments("")
             if args:
                 import subprocess
                 spec.set_element_arguments(subprocess.list2cmdline(args))
-                
+
             request.set_element_spec(spec)
-            
+
             return self._server._proxy.StartProgramInGuest(request)._returnval
         except (VI.ZSI.FaultException), e:
             raise VIApiException(e)
@@ -1518,7 +1559,7 @@ class VIVirtualMachine(VIManagedEntity):
     #-------------------#
     #-- OTHER METHODS --#
     #-------------------#
-    
+
     def get_property(self, name='', from_cache=True):
         """"Returns the VM property with the given @name or None if the property
         doesn't exist or have not been set. The property is looked in the cached
@@ -1566,14 +1607,14 @@ class VIVirtualMachine(VIManagedEntity):
                 if prop.Name == 'name':
                     return prop.Val
 
-    
+
     def set_extra_config(self, settings, sync_run=True):
         """Sets the advanced configuration settings (as the ones on the .vmx
         file).
-          * settings: a key-value pair dictionary with the settings to 
+          * settings: a key-value pair dictionary with the settings to
             set/change
           * sync_run: if True (default) waits for the task to finish and returns
-            (raises an exception if the task didn't succeed). If False the task 
+            (raises an exception if the task didn't succeed). If False the task
             is started and a VITask instance is returned
         E.g.:
             #prevent virtual disk shrinking
@@ -1585,7 +1626,7 @@ class VIVirtualMachine(VIManagedEntity):
             _this = request.new__this(self._mor)
             _this.set_attribute_type(self._mor.get_attribute_type())
             request.set_element__this(_this)
-    
+
             spec = request.new_spec()
             extra_config = []
             for k,v in settings.iteritems():
@@ -1594,7 +1635,7 @@ class VIVirtualMachine(VIManagedEntity):
                 ec.set_element_value(str(v))
                 extra_config.append(ec)
             spec.set_element_extraConfig(extra_config)
-    
+
             request.set_element_spec(spec)
             task = self._server._proxy.ReconfigVM_Task(request)._returnval
             vi_task = VITask(task, self._server)
@@ -1602,10 +1643,19 @@ class VIVirtualMachine(VIManagedEntity):
                 status = vi_task.wait_for_state([vi_task.STATE_SUCCESS,
                                                  vi_task.STATE_ERROR])
                 if status == vi_task.STATE_ERROR:
-                    raise VIException(vi_task.get_error_message(),
-                                      FaultTypes.TASK_ERROR)
+                    raise VITaskException(vi_task.info.error)
                 return
             return vi_task
+        except (VI.ZSI.FaultException), e:
+            raise VIApiException(e)
+
+    def unregister(self):
+        try:
+            request = VI.UnregisterVMRequestMsg()
+            _this = request.new__this(self._mor)
+            _this.set_attribute_type(self._mor.get_attribute_type())
+            request.set_element__this(_this)
+            self._server._proxy.UnregisterVM(request)
         except (VI.ZSI.FaultException), e:
             raise VIApiException(e)
 
@@ -1676,6 +1726,35 @@ class VIVirtualMachine(VIManagedEntity):
         except (VI.ZSI.FaultException), e:
             raise VIApiException(e)
 
+    def __rename_snapshot(self, snap, new_name=None, new_description=None):
+        """Renames the given snapshot.
+        If @new_name is None, snapshot name remains unchanged.
+        If @new_description is None snapshot description remains unchanged."""
+
+        if new_name == '':
+            raise VIException("Snapshot name must not be empty string.",
+                              FaultTypes.PARAMETER_ERROR)
+
+        if new_name is None and new_description is None:
+            raise VIException("Didn't provide name nor description. Nothing to do.",
+                              FaultTypes.PARAMETER_ERROR)
+        elif new_name is None:
+            new_name = snap._name
+        elif new_description is None:
+            new_description = snap._description
+
+        try:
+            request = VI.RenameSnapshotRequestMsg()
+            mor_snap = request.new__this(snap._mor)
+            mor_snap.set_attribute_type(snap._mor.get_attribute_type())
+            request.set_element__this(mor_snap)
+            request.set_element_name(new_name)
+            request.set_element_description(new_description)
+            self._server._proxy.RenameSnapshot(request)
+            self.refresh_snapshot_list()
+        except (VI.ZSI.FaultException), e:
+            raise VIApiException(e)
+
     def __delete_snapshot(self, mor, remove_children, sync_run):
         """Deletes the snapshot of the given MOR. If remove_children is True,
         deletes all the snapshots in the subtree as well. If @sync_run is True
@@ -1696,8 +1775,7 @@ class VIVirtualMachine(VIManagedEntity):
                                                  vi_task.STATE_ERROR])
                 self.refresh_snapshot_list()
                 if status == vi_task.STATE_ERROR:
-                    raise VIException(vi_task.get_error_message(),
-                                      FaultTypes.TASK_ERROR)
+                    raise VITaskException(vi_task.info.error)
                 return
             return vi_task
 
@@ -1720,13 +1798,13 @@ class VIVirtualMachine(VIManagedEntity):
             self._server._proxy.ValidateCredentialsInGuest(request)
         except (VI.ZSI.FaultException), e:
             raise VIApiException(e)
-    
+
     def __update_properties(self):
         """Refreshes the properties retrieved from the virtual machine
         (i.e. name, path, snapshot tree, etc). To reduce traffic, all the
         properties are retrieved from one shot, if you expect changes, then you
         should call this method before other"""
-        
+
         def update_devices(devices):
             for dev in devices:
                 d = {
@@ -1753,9 +1831,9 @@ class VIVirtualMachine(VIManagedEntity):
                 if hasattr(dev,'busNumber'):
                     d['busNumber'] = dev.busNumber
                     d['devices'] = getattr(dev,'device',[])
-                    
+
                 self._devices[dev.key] = d
-        
+
         def update_disks(disks):
             new_disks = []
             for disk in disks:
@@ -1771,7 +1849,7 @@ class VIVirtualMachine(VIManagedEntity):
                         if f['type'] == 'diskDescriptor':
                             store = f['name']
                 dev = self._devices[disk.key]
-                
+
                 new_disks.append({
                                    'device': dev,
                                    'files': files,
@@ -1781,7 +1859,7 @@ class VIVirtualMachine(VIManagedEntity):
                                    'label': dev['label'],
                                    })
             self._disks = new_disks
-        
+
         def update_files(files):
             for file_info in files:
                 self._files[file_info.key] = {
@@ -1790,16 +1868,16 @@ class VIVirtualMachine(VIManagedEntity):
                                         'size': file_info.size,
                                         'type': file_info.type
                                         }
-                
-        
+
+
         try:
             self.properties = VIProperty(self._server, self._mor)
         except (VI.ZSI.FaultException), e:
-            raise VIApiException(e)      
-        
+            raise VIApiException(e)
+
         p = {}
         p['name'] = self.properties.name
-        
+
         #------------------------#
         #-- UPDATE CONFIG INFO --#
         if hasattr(self.properties, "config"):
@@ -1809,14 +1887,14 @@ class VIVirtualMachine(VIManagedEntity):
                 p['path'] = self.properties.config.files.vmPathName
             p['memory_mb'] = self.properties.config.hardware.memoryMB
             p['num_cpu'] = self.properties.config.hardware.numCPU
-        
+
             if hasattr(self.properties.config.hardware, "device"):
                 update_devices(self.properties.config.hardware.device)
                 p['devices'] = self._devices
-        
+
         #-----------------------#
         #-- UPDATE GUEST INFO --#
-        
+
         if hasattr(self.properties, "guest"):
             if hasattr(self.properties.guest, "hostName"):
                 p['hostname'] = self.properties.guest.hostName
@@ -1831,12 +1909,12 @@ class VIVirtualMachine(VIManagedEntity):
                                  'ip_addresses':getattr(nic, "ipAddress", []),
                                  'network':getattr(nic, "network", None)
                                 })
-           
+
                 p['net'] = nics
-        
+
         #------------------------#
         #-- UPDATE LAYOUT INFO --#
-        
+
         if hasattr(self.properties, "layoutEx"):
             if hasattr(self.properties.layoutEx, "file"):
                 update_files(self.properties.layoutEx.file)
@@ -1844,30 +1922,30 @@ class VIVirtualMachine(VIManagedEntity):
             if hasattr(self.properties.layoutEx, "disk"):
                 update_disks(self.properties.layoutEx.disk)
                 p['disks'] = self._disks
-            
+
         self._properties = p
-        
+
         #----------------------#
         #-- UPDATE SNAPSHOTS --#
-        
+
         root_snapshots = []
         if hasattr(self.properties, "snapshot"):
             if hasattr(self.properties.snapshot, "currentSnapshot"):
                 self.__current_snapshot = \
                                    self.properties.snapshot.currentSnapshot._obj
-            
-            
+
+
             for root_snap in self.properties.snapshot.rootSnapshotList:
                 root = VISnapshot(root_snap)
                 root_snapshots.append(root)
         self._root_snapshots = root_snapshots
         self.__create_snapshot_list()
-        
+
         #-----------------------#
         #-- SET RESOURCE POOL --#
         if hasattr(self.properties, "resourcePool"):
             self._resource_pool = self.properties.resourcePool._obj
-            
+
 
 class VMPowerState:
     POWERED_ON              = 'POWERED ON'

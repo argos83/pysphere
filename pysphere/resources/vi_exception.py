@@ -48,6 +48,19 @@ class VIApiException(VIException):
 
         super(self.__class__, self).__init__(message, fault)
 
+class VITaskException(VIException):
+    def __init__(self, e):
+        try:
+            message = e.localizedMessage
+        except:
+            message = str(e)
+        try:
+            fault = e.fault.typecode.type[1]
+        except:
+            fault = 'Undefined'
+
+        super(self.__class__, self).__init__(message, fault)
+
 class UnsupportedPerfIntervalError(VIException):
     pass
 

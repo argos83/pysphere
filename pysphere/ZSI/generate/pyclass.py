@@ -41,6 +41,10 @@ del _x
 #    nil.typecode = typecode or cls.typecode
 #    return nil
 
+def setElements(self, **kw):
+    for k, v in kw.iteritems():
+        getattr(self, 'set_element_'+k)(v)
+
 
 class pyclass_type(type):
     """Stability: Unstable
@@ -126,6 +130,7 @@ class pyclass_type(type):
         # or immutable type <complexType> simpleContent (float, str, etc)
         #
         if hasattr(typecode, 'attribute_typecode_dict'):
+            classdict['setElements'] = setElements
             attribute_typecode_dict = typecode.attribute_typecode_dict or {}
             for key,what in attribute_typecode_dict.iteritems():
                 get,_set = cls.__create_attr_functions_from_what(key, what)

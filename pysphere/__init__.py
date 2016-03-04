@@ -163,11 +163,11 @@
 # accompanying credits file.
 #
 #--
-__all__ = ['VIServer', 'VIException', 'VIApiException', 'VITask', 'FaultTypes',
-            'VIMor', 'MORTypes', 'VMPowerState', 'ToolsStatus', 'VIProperty']
+__all__ = ['VIServer', 'VIException', 'VIApiException', 'VITaskException', 'VITask',
+           'FaultTypes', 'VIMor', 'MORTypes', 'VMPowerState', 'ToolsStatus', 'VIProperty']
 
 from pysphere.resources.vi_exception import VIException, VIApiException, \
-                                            FaultTypes
+                                            VITaskException, FaultTypes
 from pysphere.vi_task import VITask
 from pysphere.vi_property import VIProperty
 from pysphere.vi_mor import VIMor, MORTypes

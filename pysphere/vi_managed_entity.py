@@ -30,14 +30,14 @@
 from pysphere.resources import VimService_services as VI
 from pysphere.vi_task import VITask
 from pysphere.resources.vi_exception import VIException, VIApiException, \
-                                            FaultTypes
+                                            VITaskException, FaultTypes
 
 class VIManagedEntity(object):
 
     def __init__(self, server, mor):
         self._server = server
         self._mor = mor
-        
+
     def rename(self, new_name, sync_run=True):
         """
         Renames this managed entity.
@@ -48,7 +48,7 @@ class VIManagedEntity(object):
             escaped as %5C or %5c, and a percent is escaped as %25.
           * sync_run: (default True), If False does not wait for the task to
             finish and returns an instance of a VITask for the user to monitor
-            its progress 
+            its progress
         """
         try:
             request = VI.Rename_TaskRequestMsg()
@@ -63,21 +63,20 @@ class VIManagedEntity(object):
                 status = vi_task.wait_for_state([vi_task.STATE_SUCCESS,
                                                  vi_task.STATE_ERROR])
                 if status == vi_task.STATE_ERROR:
-                    raise VIException(vi_task.get_error_message(),
-                                      FaultTypes.TASK_ERROR)
+                    raise VITaskException(vi_task.info.error)
                 return
 
             return vi_task
 
         except (VI.ZSI.FaultException), e:
             raise VIApiException(e)
-        
+
     def reload(self):
         """
         Reload the entity state.
         Clients only need to call this method if they changed some external
         state that affects the service without using the Web service interface
-        to perform the change. For example, hand-editing a virtual machine 
+        to perform the change. For example, hand-editing a virtual machine
         configuration file affects the configuration of the associated virtual
         machine but the service managing the virtual machine might not monitor
         the file for changes. In this case, after such an edit, a client would
@@ -92,10 +91,10 @@ class VIManagedEntity(object):
             self._server._proxy.Reload(request)
         except (VI.ZSI.FaultException), e:
             raise VIApiException(e)
-        
+
     def destroy(self, sync_run=True):
         """
-        Destroys this object, deleting its contents and removing it from its 
+        Destroys this object, deleting its contents and removing it from its
         parent folder (if any)
         * sync_run: (default True), If False does not wait for the task to
             finish and returns an instance of a VITask for the user to monitor
@@ -106,7 +105,7 @@ class VIManagedEntity(object):
             _this = request.new__this(self._mor)
             _this.set_attribute_type(self._mor.get_attribute_type())
             request.set_element__this(_this)
-            
+
 
             task = self._server._proxy.Destroy_Task(request)._returnval
             vi_task = VITask(task, self._server)
@@ -114,8 +113,7 @@ class VIManagedEntity(object):
                 status = vi_task.wait_for_state([vi_task.STATE_SUCCESS,
                                                  vi_task.STATE_ERROR])
                 if status == vi_task.STATE_ERROR:
-                    raise VIException(vi_task.get_error_message(),
-                                      FaultTypes.TASK_ERROR)
+                    raise VITaskException(vi_task.info.error)
                 return
 
             return vi_task

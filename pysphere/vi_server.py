@@ -28,14 +28,21 @@
 #--
 
 import sys
+import os
+from base64 import b64encode, b64decode
+from urlparse import urlparse
+from socket import gethostbyaddr
 
 from pysphere.resources import VimService_services as VI
 
-from pysphere import VIException, VIApiException, FaultTypes
+from pysphere import VIException, VIApiException, VITaskException, FaultTypes
 from pysphere.vi_virtual_machine import VIVirtualMachine
+from pysphere.vi_file_manager import VIFileManager
 from pysphere.vi_performance_manager import PerformanceManager
 from pysphere.vi_task_history_collector import VITaskHistoryCollector
+from pysphere.vi_property import VIProperty
 from pysphere.vi_mor import VIMor, MORTypes
+from pysphere.vi_task import VITask
 
 class VIServer:
 
@@ -50,18 +57,24 @@ class VIServer:
         #By default impersonate the VI Client to be accepted by Virtual Server
         self.__initial_headers = {"User-Agent":"VMware VI Client/5.0.0"}
 
-    def connect(self, host, user, password, trace_file=None, sock_timeout=None):
+    def connect(self, host, user=None, password=None, passthrough=False, trace_file=None, sock_timeout=None):
         """Opens a session to a VC/ESX server with the given credentials:
         @host: is the server's hostname or address. If the web service uses
         another protocol or port than the default, you must use the full
         service URL (e.g. http://myhost:8888/sdk)
-        @user: username to connect with
-        @password: password to authenticate the session
+        @user: (optional) username to connect with
+        @password: (optional) password to authenticate the session
+        @passthrough: (optional) use Windows session credentials
+        or MIT Kerberos credentials to connect.
+        User should provide user/password pair OR set passthrough to True
         @trace_file: (optional) a file path to log SOAP requests and responses
         @sock_timeout: (optional) only for python >= 2.6, sets the connection
         timeout for sockets, in python 2.5 you'll  have to use
         socket.setdefaulttimeout(secs) to change the global setting.
         """
+        if (((user is None or password is None) and not passthrough)
+        or ((user is not None or password is not None) and passthrough)):
+            raise TypeError("connect() takes user/password pair OR passthrough=True")
 
         self.__user = user
         self.__password = password
@@ -103,16 +116,69 @@ class VIServer:
             self.__api_version = self._do_service_content.About.ApiVersion
             self.__api_type = self._do_service_content.About.ApiType
 
-            #login
-            request = VI.LoginRequestMsg()
-            mor_session_manager = request.new__this(
-                                        self._do_service_content.SessionManager)
-            mor_session_manager.set_attribute_type(MORTypes.SessionManager)
-            request.set_element__this(mor_session_manager)
-            request.set_element_userName(user)
-            request.set_element_password(password)
-            self.__session = self._proxy.Login(request)._returnval
-            self.__logged = True
+            if not passthrough:
+                #login with user/password
+                request = VI.LoginRequestMsg()
+                mor_session_manager = request.new__this(
+                                            self._do_service_content.SessionManager)
+                mor_session_manager.set_attribute_type(MORTypes.SessionManager)
+                request.set_element__this(mor_session_manager)
+                request.set_element_userName(user)
+                request.set_element_password(password)
+                self.__session = self._proxy.Login(request)._returnval
+                self.__logged = True
+
+            else:
+                fqdn, aliases, addrs = gethostbyaddr(urlparse(server_url).netloc)
+                if os.name == 'nt':
+                    #login with Windows session credentials
+                    try:
+                        from sspi import ClientAuth
+                    except ImportError:
+                        raise ImportError("To enable passthrough authentication please"\
+                            " install pywin32 (available for Windows only)")
+                    spn = "host/%s" % fqdn
+                    client = ClientAuth("Kerberos", targetspn=spn)
+
+                    def get_token(serverToken=None):
+                        if serverToken is not None:
+                            serverToken = b64decode(serverToken)
+                        err, bufs = client.authorize(serverToken)
+                        return b64encode(bufs[0].Buffer)
+                else:
+                    #login with MIT Kerberos credentials
+                    try:
+                        import kerberos
+                    except ImportError:
+                        raise ImportError("To enable passthrough authentication please"\
+                            " install python bindings for kerberos")
+                    spn = "host@%s" % fqdn
+                    flags = kerberos.GSS_C_INTEG_FLAG|kerberos.GSS_C_SEQUENCE_FLAG|\
+                        kerberos.GSS_C_REPLAY_FLAG|kerberos.GSS_C_CONF_FLAG
+                    errc, client = kerberos.authGSSClientInit(spn, gssflags=flags)
+
+                    def get_token(serverToken=''):
+                        cres = kerberos.authGSSClientStep(client, serverToken)
+                        return kerberos.authGSSClientResponse(client)
+
+                token = get_token()
+
+                while not self.__logged:
+                    try:
+                        request = VI.LoginBySSPIRequestMsg()
+                        mor_session_manager = request.new__this(
+                                                    self._do_service_content.SessionManager)
+                        mor_session_manager.set_attribute_type(MORTypes.SessionManager)
+                        request.set_element__this(mor_session_manager)
+                        request.set_element_base64Token(token)
+                        self.__session = self._proxy.LoginBySSPI(request)._returnval
+                        self.__logged = True
+                    except (VI.ZSI.FaultException), e:
+                        if e.fault.string == "fault.SSPIChallenge.summary":
+                            serverToken = e.fault.detail[0].Base64Token
+                            token = get_token(serverToken)
+                        else:
+                            raise e
 
         except (VI.ZSI.FaultException), e:
             raise VIApiException(e)
@@ -150,6 +216,10 @@ class VIServer:
                 self._proxy.Logout(request)
             except (VI.ZSI.FaultException), e:
                 raise VIApiException(e)
+
+    def get_file_manager(self):
+        """Returns a File Manager entity"""
+        return VIFileManager(self, self._do_service_content.FileManager)
 
     def get_performance_manager(self):
         """Returns a Performance Manager entity"""
@@ -470,6 +540,66 @@ class VIServer:
         except (VI.ZSI.FaultException), e:
             raise VIApiException(e)
 
+    def register_vm(self, path, name=None, sync_run=True, folder=None,
+                    template=False, resourcepool=None, host=None):
+        """Adds an existing virtual machine to the folder.
+        @path: a datastore path to the virtual machine.
+            Example "[datastore] path/to/machine.vmx".
+        @name: the name to be assigned to the virtual machine.
+            If this parameter is not set, the displayName configuration
+            parameter of the virtual machine is used.
+        @sync_run: if True (default) waits for the task to finish, and returns
+            a VIVirtualMachine instance with the new VM (raises an exception if
+            the task didn't succeed). If @sync_run is set to False the task is
+            started and a VITask instance is returned
+        @folder_name: folder in which to register the virtual machine.
+        @template: Flag to specify whether or not the virtual machine
+            should be marked as a template.
+        @resourcepool: MOR of the resource pool to which the virtual machine should
+            be attached. If imported as a template, this parameter is not set.
+        @host: The target host on which the virtual machine will run. This
+            parameter must specify a host that is a member of the ComputeResource
+            indirectly specified by the pool. For a stand-alone host or a cluster
+            with DRS, the parameter can be omitted, and the system selects a default.
+        """
+        if not folder:
+            folders = self._get_managed_objects(MORTypes.Folder)
+            folder = [_mor for _mor, _name in folders.iteritems()
+                          if _name == 'vm'][0]
+        try:
+            request = VI.RegisterVM_TaskRequestMsg()
+            _this = request.new__this(folder)
+            _this.set_attribute_type(folder.get_attribute_type())
+            request.set_element__this(_this)
+            request.set_element_path(path)
+            if name:
+                request.set_element_name(name)
+            request.set_element_asTemplate(template)
+            if resourcepool:
+                pool = request.new_pool(resourcepool)
+                pool.set_attribute_type(resourcepool.get_attribute_type())
+                request.set_element_pool(pool)
+            if host:
+                if not VIMor.is_mor(host):
+                    host = VIMor(host, MORTypes.HostSystem)
+                    hs = request.new_host(host)
+                    hs.set_attribute_type(host.get_attribute_type())
+                    request.set_element_host(hs)
+
+            task = self._proxy.RegisterVM_Task(request)._returnval
+            vi_task = VITask(task, self)
+            if sync_run:
+                status = vi_task.wait_for_state([vi_task.STATE_SUCCESS,
+                                                 vi_task.STATE_ERROR])
+                if status == vi_task.STATE_ERROR:
+                    raise VITaskException(vi_task.info.error)
+                return
+
+            return vi_task
+
+        except (VI.ZSI.FaultException), e:
+            raise VIApiException(e)
+
     def _get_object_properties(self, mor, property_names=[], get_all=False):
         """Returns the properties defined in property_names (or all if get_all
         is set to True) of the managed object reference given in @mor.
@@ -575,7 +705,6 @@ class VIServer:
         except (VI.ZSI.FaultException), e:
             raise VIApiException(e)
 
-
     def _retrieve_properties_traversal(self, property_names=[],
                                       from_node=None, obj_type='ManagedEntity'):
         """Uses VI API's property collector to retrieve the properties defined
@@ -605,138 +734,12 @@ class VIServer:
             do_PropertyFilterSpec_specSet = request.new_specSet()
 
             props_set = []
-            do_PropertySpec_propSet =do_PropertyFilterSpec_specSet.new_propSet()
+            do_PropertySpec_propSet = do_PropertyFilterSpec_specSet.new_propSet()
             do_PropertySpec_propSet.set_element_type(obj_type)
             do_PropertySpec_propSet.set_element_pathSet(property_names)
             props_set.append(do_PropertySpec_propSet)
 
-            objects_set = []
-            do_ObjectSpec_objSet = do_PropertyFilterSpec_specSet.new_objectSet()
-            mor_obj = do_ObjectSpec_objSet.new_obj(from_node)
-            mor_obj.set_attribute_type(from_node.get_attribute_type())
-            do_ObjectSpec_objSet.set_element_obj(mor_obj)
-            do_ObjectSpec_objSet.set_element_skip(False)
-
-            #Recurse through all ResourcePools
-            rp_to_rp = VI.ns0.TraversalSpec_Def('rpToRp').pyclass()
-            rp_to_rp.set_element_name('rpToRp')
-            rp_to_rp.set_element_type(MORTypes.ResourcePool)
-            rp_to_rp.set_element_path('resourcePool')
-            rp_to_rp.set_element_skip(False)
-            rp_to_vm= VI.ns0.TraversalSpec_Def('rpToVm').pyclass()
-            rp_to_vm.set_element_name('rpToVm')
-            rp_to_vm.set_element_type(MORTypes.ResourcePool)
-            rp_to_vm.set_element_path('vm')
-            rp_to_vm.set_element_skip(False)
-
-            spec_array_resource_pool = [do_ObjectSpec_objSet.new_selectSet(),
-                                        do_ObjectSpec_objSet.new_selectSet()]
-            spec_array_resource_pool[0].set_element_name('rpToRp')
-            spec_array_resource_pool[1].set_element_name('rpToVm')
-
-            rp_to_rp.set_element_selectSet(spec_array_resource_pool)
-
-            #Traversal through resource pool branch
-            cr_to_rp = VI.ns0.TraversalSpec_Def('crToRp').pyclass()
-            cr_to_rp.set_element_name('crToRp')
-            cr_to_rp.set_element_type(MORTypes.ComputeResource)
-            cr_to_rp.set_element_path('resourcePool')
-            cr_to_rp.set_element_skip(False)
-            spec_array_computer_resource =[do_ObjectSpec_objSet.new_selectSet(),
-                                           do_ObjectSpec_objSet.new_selectSet()]
-            spec_array_computer_resource[0].set_element_name('rpToRp');
-            spec_array_computer_resource[1].set_element_name('rpToVm');
-            cr_to_rp.set_element_selectSet(spec_array_computer_resource)
-
-            #Traversal through host branch
-            cr_to_h = VI.ns0.TraversalSpec_Def('crToH').pyclass()
-            cr_to_h.set_element_name('crToH')
-            cr_to_h.set_element_type(MORTypes.ComputeResource)
-            cr_to_h.set_element_path('host')
-            cr_to_h.set_element_skip(False)
-
-            #Traversal through hostFolder branch
-            dc_to_hf = VI.ns0.TraversalSpec_Def('dcToHf').pyclass()
-            dc_to_hf.set_element_name('dcToHf')
-            dc_to_hf.set_element_type(MORTypes.Datacenter)
-            dc_to_hf.set_element_path('hostFolder')
-            dc_to_hf.set_element_skip(False)
-            spec_array_datacenter_host = [do_ObjectSpec_objSet.new_selectSet()]
-            spec_array_datacenter_host[0].set_element_name('visitFolders')
-            dc_to_hf.set_element_selectSet(spec_array_datacenter_host)
-
-            #Traversal through vmFolder branch
-            dc_to_vmf = VI.ns0.TraversalSpec_Def('dcToVmf').pyclass()
-            dc_to_vmf.set_element_name('dcToVmf')
-            dc_to_vmf.set_element_type(MORTypes.Datacenter)
-            dc_to_vmf.set_element_path('vmFolder')
-            dc_to_vmf.set_element_skip(False)
-            spec_array_datacenter_vm = [do_ObjectSpec_objSet.new_selectSet()]
-            spec_array_datacenter_vm[0].set_element_name('visitFolders')
-            dc_to_vmf.set_element_selectSet(spec_array_datacenter_vm)
-
-            #Traversal through datastore branch
-            dc_to_ds = VI.ns0.TraversalSpec_Def('dcToDs').pyclass()
-            dc_to_ds.set_element_name('dcToDs')
-            dc_to_ds.set_element_type(MORTypes.Datacenter)
-            dc_to_ds.set_element_path('datastore')
-            dc_to_ds.set_element_skip(False)
-            spec_array_datacenter_ds = [do_ObjectSpec_objSet.new_selectSet()]
-            spec_array_datacenter_ds[0].set_element_name('visitFolders')
-            dc_to_ds.set_element_selectSet(spec_array_datacenter_ds)
-
-            #Recurse through all hosts
-            h_to_vm = VI.ns0.TraversalSpec_Def('hToVm').pyclass()
-            h_to_vm.set_element_name('hToVm')
-            h_to_vm.set_element_type(MORTypes.HostSystem)
-            h_to_vm.set_element_path('vm')
-            h_to_vm.set_element_skip(False)
-            spec_array_host_vm = [do_ObjectSpec_objSet.new_selectSet()]
-            spec_array_host_vm[0].set_element_name('visitFolders')
-            h_to_vm.set_element_selectSet(spec_array_host_vm)
-
-            #Recurse through all datastores
-            ds_to_vm = VI.ns0.TraversalSpec_Def('dsToVm').pyclass()
-            ds_to_vm.set_element_name('dsToVm')
-            ds_to_vm.set_element_type(MORTypes.Datastore)
-            ds_to_vm.set_element_path('vm')
-            ds_to_vm.set_element_skip(False)
-            spec_array_datastore_vm = [do_ObjectSpec_objSet.new_selectSet()]
-            spec_array_datastore_vm[0].set_element_name('visitFolders')
-            ds_to_vm.set_element_selectSet(spec_array_datastore_vm)
-
-            #Recurse through the folders
-            visit_folders = VI.ns0.TraversalSpec_Def('visitFolders').pyclass()
-            visit_folders.set_element_name('visitFolders')
-            visit_folders.set_element_type(MORTypes.Folder)
-            visit_folders.set_element_path('childEntity')
-            visit_folders.set_element_skip(False)
-            spec_array_visit_folders = [do_ObjectSpec_objSet.new_selectSet(),
-                                        do_ObjectSpec_objSet.new_selectSet(),
-                                        do_ObjectSpec_objSet.new_selectSet(),
-                                        do_ObjectSpec_objSet.new_selectSet(),
-                                        do_ObjectSpec_objSet.new_selectSet(),
-                                        do_ObjectSpec_objSet.new_selectSet(),
-                                        do_ObjectSpec_objSet.new_selectSet(),
-                                        do_ObjectSpec_objSet.new_selectSet(),
-                                        do_ObjectSpec_objSet.new_selectSet()]
-            spec_array_visit_folders[0].set_element_name('visitFolders')
-            spec_array_visit_folders[1].set_element_name('dcToHf')
-            spec_array_visit_folders[2].set_element_name('dcToVmf')
-            spec_array_visit_folders[3].set_element_name('crToH')
-            spec_array_visit_folders[4].set_element_name('crToRp')
-            spec_array_visit_folders[5].set_element_name('dcToDs')
-            spec_array_visit_folders[6].set_element_name('hToVm')
-            spec_array_visit_folders[7].set_element_name('dsToVm')
-            spec_array_visit_folders[8].set_element_name('rpToVm')
-            visit_folders.set_element_selectSet(spec_array_visit_folders)
-
-            #Add all of them here
-            spec_array = [visit_folders, dc_to_vmf, dc_to_ds, dc_to_hf, cr_to_h,
-                          cr_to_rp, rp_to_rp, h_to_vm, ds_to_vm, rp_to_vm]
-
-            do_ObjectSpec_objSet.set_element_selectSet(spec_array)
-            objects_set.append(do_ObjectSpec_objSet)
+            objects_set = self._get_traversal_objects_set(do_PropertyFilterSpec_specSet, from_node)
 
             do_PropertyFilterSpec_specSet.set_element_propSet(props_set)
             do_PropertyFilterSpec_specSet.set_element_objectSet(objects_set)
@@ -745,8 +748,43 @@ class VIServer:
             return request_call(request)
 
         except (VI.ZSI.FaultException), e:
-                raise VIApiException(e)
+            raise VIApiException(e)
 
+    def _create_filter(self, property_names=[],
+                       from_node=None, obj_type='ManagedEntity', partial_updates=True):
+        """Creates filter with given parameters and returns its MOR"""
+        try:
+            if not from_node:
+                from_node = self._do_service_content.RootFolder
+
+            elif isinstance(from_node, tuple) and len(from_node) == 2:
+                from_node = VIMor(from_node[0], from_node[1])
+            elif not VIMor.is_mor(from_node):
+                raise VIException("from_node must be a MOR object or a "
+                                  "(<str> mor_id, <str> mor_type) tuple",
+                                  FaultTypes.PARAMETER_ERROR)
+
+            request = VI.CreateFilterRequestMsg()
+            _this = request.new__this(self._do_service_content.PropertyCollector)
+            _this.set_attribute_type(MORTypes.PropertyCollector)
+            request.set_element__this(_this)
+            request.set_element_partialUpdates(partial_updates)
+
+            spec = request.new_spec()
+            propSet = spec.new_propSet()
+            propSet.set_element_type(obj_type)
+            propSet.set_element_pathSet(property_names)
+            spec.set_element_propSet([propSet])
+
+            objects_set = self._get_traversal_objects_set(spec, from_node)
+            spec.set_element_objectSet(objects_set)
+            request.set_element_spec(spec)
+
+            mor = self._proxy.CreateFilter(request)._returnval
+            return mor
+
+        except (VI.ZSI.FaultException), e:
+            raise VIApiException(e)
 
     def _retrieve_property_request(self):
         """Returns a base request object an call request method pointer for
@@ -792,6 +830,156 @@ class VIServer:
 
         return request, call_pointer
 
+    def _wait_for_updates(self, version='', max_object_updates=None, max_wait_seconds=None):
+
+        try:
+            if self.__api_version >= "4.1":
+                request = VI.WaitForUpdatesExRequestMsg()
+                options = request.new_options()
+                if max_object_updates is not None:
+                    options.set_element_maxObjectUpdates(max_object_updates)
+                if max_wait_seconds is not None:
+                    options.set_element_maxWaitSeconds(max_wait_seconds)
+                request.set_element_options(options)
+                method = self._proxy.WaitForUpdatesEx
+            else:
+                if max_wait_seconds is None:
+                    print 'WaitForUpdates'
+                    request = VI.WaitForUpdatesRequestMsg()
+                    method = self._proxy.WaitForUpdates
+                else:
+                    print 'CheckForUpdates'
+                    request = VI.CheckForUpdatesRequestMsg()
+                    method = self._proxy.CheckForUpdates
+            _this = request.new__this(self._do_service_content.PropertyCollector)
+            _this.set_attribute_type(MORTypes.PropertyCollector)
+            request.set_element__this(_this)
+            request.set_element_version(version)
+            retval = method(request)._returnval
+            return retval
+
+        except (VI.ZSI.FaultException), e:
+            raise VIApiException(e)
+
+    def _get_traversal_objects_set(self, specSet, from_node):
+        objects_set = []
+        do_ObjectSpec_objSet = specSet.new_objectSet()
+        mor_obj = do_ObjectSpec_objSet.new_obj(from_node)
+        mor_obj.set_attribute_type(from_node.get_attribute_type())
+        do_ObjectSpec_objSet.set_element_obj(mor_obj)
+        do_ObjectSpec_objSet.set_element_skip(False)
+
+        #Recurse through all ResourcePools
+        rp_to_rp = VI.ns0.TraversalSpec_Def('rpToRp').pyclass()
+        rp_to_rp.set_element_name('rpToRp')
+        rp_to_rp.set_element_type(MORTypes.ResourcePool)
+        rp_to_rp.set_element_path('resourcePool')
+        rp_to_rp.set_element_skip(False)
+        rp_to_vm = VI.ns0.TraversalSpec_Def('rpToVm').pyclass()
+        rp_to_vm.set_element_name('rpToVm')
+        rp_to_vm.set_element_type(MORTypes.ResourcePool)
+        rp_to_vm.set_element_path('vm')
+        rp_to_vm.set_element_skip(False)
+
+        spec_array_resource_pool = [do_ObjectSpec_objSet.new_selectSet(),
+                                    do_ObjectSpec_objSet.new_selectSet()]
+        spec_array_resource_pool[0].set_element_name('rpToRp')
+        spec_array_resource_pool[1].set_element_name('rpToVm')
+
+        rp_to_rp.set_element_selectSet(spec_array_resource_pool)
+
+        #Traversal through resource pool branch
+        cr_to_rp = VI.ns0.TraversalSpec_Def('crToRp').pyclass()
+        cr_to_rp.set_element_name('crToRp')
+        cr_to_rp.set_element_type(MORTypes.ComputeResource)
+        cr_to_rp.set_element_path('resourcePool')
+        cr_to_rp.set_element_skip(False)
+        spec_array_computer_resource = [do_ObjectSpec_objSet.new_selectSet(),
+                                        do_ObjectSpec_objSet.new_selectSet()]
+        spec_array_computer_resource[0].set_element_name('rpToRp');
+        spec_array_computer_resource[1].set_element_name('rpToVm');
+        cr_to_rp.set_element_selectSet(spec_array_computer_resource)
+
+        #Traversal through host branch
+        cr_to_h = VI.ns0.TraversalSpec_Def('crToH').pyclass()
+        cr_to_h.set_element_name('crToH')
+        cr_to_h.set_element_type(MORTypes.ComputeResource)
+        cr_to_h.set_element_path('host')
+        cr_to_h.set_element_skip(False)
+
+        #Traversal through hostFolder branch
+        dc_to_hf = VI.ns0.TraversalSpec_Def('dcToHf').pyclass()
+        dc_to_hf.set_element_name('dcToHf')
+        dc_to_hf.set_element_type(MORTypes.Datacenter)
+        dc_to_hf.set_element_path('hostFolder')
+        dc_to_hf.set_element_skip(False)
+        spec_array_datacenter_host = [do_ObjectSpec_objSet.new_selectSet()]
+        spec_array_datacenter_host[0].set_element_name('visitFolders')
+        dc_to_hf.set_element_selectSet(spec_array_datacenter_host)
+
+        #Traversal through vmFolder branch
+        dc_to_vmf = VI.ns0.TraversalSpec_Def('dcToVmf').pyclass()
+        dc_to_vmf.set_element_name('dcToVmf')
+        dc_to_vmf.set_element_type(MORTypes.Datacenter)
+        dc_to_vmf.set_element_path('vmFolder')
+        dc_to_vmf.set_element_skip(False)
+        spec_array_datacenter_vm = [do_ObjectSpec_objSet.new_selectSet()]
+        spec_array_datacenter_vm[0].set_element_name('visitFolders')
+        dc_to_vmf.set_element_selectSet(spec_array_datacenter_vm)
+
+        #Traversal through datastore branch
+        dc_to_ds = VI.ns0.TraversalSpec_Def('dcToDs').pyclass()
+        dc_to_ds.set_element_name('dcToDs')
+        dc_to_ds.set_element_type(MORTypes.Datacenter)
+        dc_to_ds.set_element_path('datastore')
+        dc_to_ds.set_element_skip(False)
+        spec_array_datacenter_ds = [do_ObjectSpec_objSet.new_selectSet()]
+        spec_array_datacenter_ds[0].set_element_name('visitFolders')
+        dc_to_ds.set_element_selectSet(spec_array_datacenter_ds)
+
+        #Recurse through all hosts
+        h_to_vm = VI.ns0.TraversalSpec_Def('hToVm').pyclass()
+        h_to_vm.set_element_name('hToVm')
+        h_to_vm.set_element_type(MORTypes.HostSystem)
+        h_to_vm.set_element_path('vm')
+        h_to_vm.set_element_skip(False)
+        spec_array_host_vm = [do_ObjectSpec_objSet.new_selectSet()]
+        spec_array_host_vm[0].set_element_name('visitFolders')
+        h_to_vm.set_element_selectSet(spec_array_host_vm)
+
+        #Recurse through all datastores
+        ds_to_vm = VI.ns0.TraversalSpec_Def('dsToVm').pyclass()
+        ds_to_vm.set_element_name('dsToVm')
+        ds_to_vm.set_element_type(MORTypes.Datastore)
+        ds_to_vm.set_element_path('vm')
+        ds_to_vm.set_element_skip(False)
+        spec_array_datastore_vm = [do_ObjectSpec_objSet.new_selectSet()]
+        spec_array_datastore_vm[0].set_element_name('visitFolders')
+        ds_to_vm.set_element_selectSet(spec_array_datastore_vm)
+
+        #Recurse through the folders
+        visit_folders = VI.ns0.TraversalSpec_Def('visitFolders').pyclass()
+        visit_folders.set_element_name('visitFolders')
+        visit_folders.set_element_type(MORTypes.Folder)
+        visit_folders.set_element_path('childEntity')
+        visit_folders.set_element_skip(False)
+        spec_array_visit_folders = []
+        for i in ('visitFolders', 'dcToHf', 'dcToVmf', 'crToH', 'crToRp',
+                  'dcToDs', 'hToVm', 'dsToVm', 'rpToVm'):
+            select_set = do_ObjectSpec_objSet.new_selectSet()
+            select_set.set_element_name(i)
+            spec_array_visit_folders.append(select_set)
+
+        visit_folders.set_element_selectSet(spec_array_visit_folders)
+
+        #Add all of them here
+        spec_array = [visit_folders, dc_to_vmf, dc_to_ds, dc_to_hf, cr_to_h,
+                      cr_to_rp, rp_to_rp, h_to_vm, ds_to_vm, rp_to_vm]
+
+        do_ObjectSpec_objSet.set_element_selectSet(spec_array)
+        objects_set.append(do_ObjectSpec_objSet)
+        return objects_set
+
     def _set_header(self, name, value):
         """Sets a HTTP header to be sent with the SOAP requests.
         E.g. for impersonation of a particular client.
@@ -826,7 +1014,7 @@ class VIServer:
 
     #---- DEPRECATED METHODS ----#
 
-    def _get_clusters(self, from_cache=True):
+    def _get_clusters(self, from_cache=False):
         """DEPRECATED: use get_clusters instead."""
         import warnings
         from exceptions import DeprecationWarning
@@ -837,7 +1025,7 @@ class VIServer:
         ret = self.get_clusters()
         return dict([(v,k) for k,v in ret.iteritems()])
 
-    def _get_datacenters(self, from_cache=True):
+    def _get_datacenters(self, from_cache=False):
         """DEPRECATED: use get_datacenters instead."""
         import warnings
         from exceptions import DeprecationWarning
@@ -848,7 +1036,7 @@ class VIServer:
         ret = self.get_datacenters()
         return dict([(v,k) for k,v in ret.iteritems()])
 
-    def _get_resource_pools(self, from_cache=True):
+    def _get_resource_pools(self, from_cache=False):
         """DEPRECATED: use get_resource_pools instead."""
         import warnings
         from exceptions import DeprecationWarning
