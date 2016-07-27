@@ -1588,6 +1588,8 @@ class VIVirtualMachine(VIManagedEntity):
     
             spec = request.new_spec()
             extra_config = []
+            if 'notes' in settings:
+                spec.set_element_annotation(settings['notes'])
             for k,v in settings.iteritems():
                 ec = spec.new_extraConfig()
                 ec.set_element_key(str(k))
