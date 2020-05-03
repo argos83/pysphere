@@ -1775,7 +1775,7 @@ class VIVirtualMachine(VIManagedEntity):
                 new_disks.append({
                                    'device': dev,
                                    'files': files,
-                                   'capacity': dev['capacityInKB'],
+                                   'capacity': getattr(dev, 'capacityInKB', None),
                                    'committed': committed/1024,
                                    'descriptor': store,
                                    'label': dev['label'],

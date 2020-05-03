@@ -34,6 +34,7 @@ from pysphere.resources import VimService_services as VI
 from pysphere import VIException, VIApiException, FaultTypes
 from pysphere.vi_virtual_machine import VIVirtualMachine
 from pysphere.vi_performance_manager import PerformanceManager
+from pysphere.vi_event_history_collector import VIEventHistoryCollector
 from pysphere.vi_task_history_collector import VITaskHistoryCollector
 from pysphere.vi_mor import VIMor, MORTypes
 
@@ -154,6 +155,20 @@ class VIServer:
     def get_performance_manager(self):
         """Returns a Performance Manager entity"""
         return PerformanceManager(self, self._do_service_content.PerfManager)
+
+    def get_event_history_collector(self, entity=None, recursion=None,
+                                   types=None, chain_id=None):
+        """Creates a Event History Collector that gathers Event objects.
+        based on the provides filters.
+          * entity: Entity MOR, if provided filters events related to this entity
+          * recursion: If 'entity' is provided then recursion is mandatory.
+          specification of related managed entities in the inventory hierarchy
+          should be either: 'all', 'children', or 'self'
+          * types: if provided, limits the set of collected events by their
+          types.
+          * chain_id: if provided, retrieves events by chain ID
+        """
+        return VIEventHistoryCollector(self, entity, recursion, types, chain_id)
 
     def get_task_history_collector(self, entity=None, recursion=None,
                                    states=None):
